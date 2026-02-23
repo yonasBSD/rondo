@@ -37,6 +37,12 @@ brew tap roniel-rhack/tap
 brew install rondo
 ```
 
+### Arch Linux (AUR)
+
+```bash
+yay -S rondo
+```
+
 ### From source
 
 ```bash
