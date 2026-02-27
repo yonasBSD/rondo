@@ -10,6 +10,14 @@ import (
 	"github.com/roniel/todo-app/internal/task"
 )
 
+// FormTheme returns the appropriate Huh form theme for the current terminal background.
+func FormTheme() *huh.Theme {
+	if IsDark() {
+		return huh.ThemeDracula()
+	}
+	return huh.ThemeBase()
+}
+
 // TaskFormData holds the form field values.
 type TaskFormData struct {
 	Title       string
@@ -83,7 +91,7 @@ func NewTaskForm(data *TaskFormData) *huh.Form {
 				).
 				Value(&data.RecurFreq),
 		),
-	).WithTheme(huh.ThemeDracula()).WithShowHelp(true)
+	).WithTheme(FormTheme()).WithShowHelp(true)
 }
 
 // EditTaskForm creates a Huh form for editing an existing task.
@@ -132,7 +140,7 @@ func EditTaskForm(data *TaskFormData) *huh.Form {
 				).
 				Value(&data.RecurFreq),
 		),
-	).WithTheme(huh.ThemeDracula()).WithShowHelp(true)
+	).WithTheme(FormTheme()).WithShowHelp(true)
 }
 
 // SubtaskForm creates a simple single-field form for adding a subtask.
@@ -144,7 +152,7 @@ func SubtaskForm(title *string) *huh.Form {
 				Value(title).
 				Validate(huh.ValidateNotEmpty()),
 		),
-	).WithTheme(huh.ThemeDracula()).WithShowHelp(true)
+	).WithTheme(FormTheme()).WithShowHelp(true)
 }
 
 // JournalEntryForm creates a form for adding a journal entry.
@@ -158,7 +166,7 @@ func JournalEntryForm(body *string) *huh.Form {
 				CharLimit(2000).
 				Validate(validateNotBlank),
 		),
-	).WithTheme(huh.ThemeDracula()).WithShowHelp(true)
+	).WithTheme(FormTheme()).WithShowHelp(true)
 }
 
 // ExportForm creates a form for choosing export options.
@@ -177,7 +185,7 @@ func ExportForm(data *ExportFormData) *huh.Form {
 				Title("Include Journal?").
 				Value(&data.IncludeJournal),
 		),
-	).WithTheme(huh.ThemeDracula()).WithShowHelp(true)
+	).WithTheme(FormTheme()).WithShowHelp(true)
 }
 
 // TimeLogForm creates a form for logging time on a task.
@@ -194,7 +202,7 @@ func TimeLogForm(data *TimeLogFormData) *huh.Form {
 				Title("Note (optional)").
 				Value(&data.Note),
 		),
-	).WithTheme(huh.ThemeDracula()).WithShowHelp(true)
+	).WithTheme(FormTheme()).WithShowHelp(true)
 }
 
 func validateNotBlank(s string) error {

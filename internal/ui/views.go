@@ -11,11 +11,9 @@ import (
 	"github.com/roniel/todo-app/internal/task"
 )
 
-var (
-	labelStyle = lipgloss.NewStyle().Foreground(Gray).Width(12)
-	valueStyle = lipgloss.NewStyle().Foreground(White)
-	titleStyle = lipgloss.NewStyle().Bold(true).Foreground(White)
-)
+func labelStyle() lipgloss.Style { return lipgloss.NewStyle().Foreground(Gray).Width(12) }
+func valueStyle() lipgloss.Style { return lipgloss.NewStyle().Foreground(White) }
+func titleStyle() lipgloss.Style { return lipgloss.NewStyle().Bold(true).Foreground(White) }
 
 // RenderTabs renders the tab bar.
 func RenderTabs(activeTab int, allCount, activeCount, doneCount, journalCount int, width int) string {
@@ -79,13 +77,13 @@ func RenderDetail(t *task.Task, width int, subtaskIdx int, detailFocused bool) s
 	var sections []string
 
 	// Title (wrap long titles to fill available width)
-	titleWidth := max(width-lipgloss.Width(labelStyle.Render("")), 10)
-	sections = append(sections, labelStyle.Render("Title")+titleStyle.Width(titleWidth).Render(t.Title))
+	titleWidth := max(width-lipgloss.Width(labelStyle().Render("")), 10)
+	sections = append(sections, labelStyle().Render("Title")+titleStyle().Width(titleWidth).Render(t.Title))
 	sections = append(sections, "")
 
 	// Status
 	statusStr := t.Status.Icon() + " " + t.Status.String()
-	sections = append(sections, labelStyle.Render("Status")+statusStyle(t.Status).Render(statusStr))
+	sections = append(sections, labelStyle().Render("Status")+statusStyle(t.Status).Render(statusStr))
 
 	// Blocked badge
 	if len(t.BlockedByIDs) > 0 {
@@ -100,7 +98,7 @@ func RenderDetail(t *task.Task, width int, subtaskIdx int, detailFocused bool) s
 	}
 
 	// Priority
-	sections = append(sections, labelStyle.Render("Priority")+prioStyle(t.Priority).Render(t.Priority.String()))
+	sections = append(sections, labelStyle().Render("Priority")+prioStyle(t.Priority).Render(t.Priority.String()))
 
 	// Due date with overdue badge
 	if t.DueDate != nil {
@@ -110,9 +108,9 @@ func RenderDetail(t *task.Task, width int, subtaskIdx int, detailFocused bool) s
 		if badge != "" {
 			dateStr += " " + DueStyle(level).Render(badge)
 		}
-		sections = append(sections, labelStyle.Render("Due")+DueStyle(level).Render(t.DueDate.Format("Jan 02, 2006")))
+		sections = append(sections, labelStyle().Render("Due")+DueStyle(level).Render(t.DueDate.Format("Jan 02, 2006")))
 		if badge != "" {
-			sections[len(sections)-1] = labelStyle.Render("Due") + DueStyle(level).Render(t.DueDate.Format("Jan 02, 2006")) + " " + DueStyle(level).Render(badge)
+			sections[len(sections)-1] = labelStyle().Render("Due") + DueStyle(level).Render(t.DueDate.Format("Jan 02, 2006")) + " " + DueStyle(level).Render(badge)
 		}
 	}
 
@@ -122,16 +120,16 @@ func RenderDetail(t *task.Task, width int, subtaskIdx int, detailFocused bool) s
 		if t.RecurInterval > 1 {
 			recurStr += fmt.Sprintf(" (every %d)", t.RecurInterval)
 		}
-		sections = append(sections, labelStyle.Render("Recurrence")+valueStyle.Render(recurStr))
+		sections = append(sections, labelStyle().Render("Recurrence")+valueStyle().Render(recurStr))
 	}
 
 	// Created
-	sections = append(sections, labelStyle.Render("Created")+valueStyle.Render(t.CreatedAt.Format("Jan 02, 2006")))
+	sections = append(sections, labelStyle().Render("Created")+valueStyle().Render(t.CreatedAt.Format("Jan 02, 2006")))
 
 	// Tags
 	if len(t.Tags) > 0 {
 		tagStr := strings.Join(t.Tags, ", ")
-		sections = append(sections, labelStyle.Render("Tags")+valueStyle.Render(tagStr))
+		sections = append(sections, labelStyle().Render("Tags")+valueStyle().Render(tagStr))
 	}
 
 	// Time logged
@@ -139,13 +137,13 @@ func RenderDetail(t *task.Task, width int, subtaskIdx int, detailFocused bool) s
 		total := task.TotalDuration(t.TimeLogs)
 		timeStr := task.FormatDuration(total)
 		timeStr += fmt.Sprintf(" (%d entries)", len(t.TimeLogs))
-		sections = append(sections, labelStyle.Render("Time Logged")+valueStyle.Render(timeStr))
+		sections = append(sections, labelStyle().Render("Time Logged")+valueStyle().Render(timeStr))
 	}
 
 	// Description (rendered as markdown)
 	if t.Description != "" {
 		sections = append(sections, "")
-		sections = append(sections, labelStyle.Render("Description"))
+		sections = append(sections, labelStyle().Render("Description"))
 		sections = append(sections, RenderMarkdown(t.Description, width-2))
 	}
 
@@ -158,7 +156,7 @@ func RenderDetail(t *task.Task, width int, subtaskIdx int, detailFocused bool) s
 				doneCount++
 			}
 		}
-		sections = append(sections, labelStyle.Render("Subtasks")+valueStyle.Render(fmt.Sprintf("%d/%d", doneCount, len(t.Subtasks))))
+		sections = append(sections, labelStyle().Render("Subtasks")+valueStyle().Render(fmt.Sprintf("%d/%d", doneCount, len(t.Subtasks))))
 		sections = append(sections, renderProgressBar(doneCount, len(t.Subtasks), width-4))
 		sections = append(sections, "")
 		for i, st := range t.Subtasks {
@@ -191,7 +189,7 @@ func RenderJournalDetail(note *journal.Note, width int, entryIdx int, detailFocu
 	var sections []string
 
 	// Date title.
-	dateTitle := titleStyle.Render(note.Date.Format("Mon, Jan 02 2006"))
+	dateTitle := titleStyle().Render(note.Date.Format("Mon, Jan 02 2006"))
 	if note.Hidden {
 		badge := lipgloss.NewStyle().Foreground(Yellow).Render(" [hidden]")
 		dateTitle += badge

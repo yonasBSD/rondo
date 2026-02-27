@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/roniel/todo-app/internal/app"
 	"github.com/roniel/todo-app/internal/cli"
@@ -14,6 +15,7 @@ import (
 	"github.com/roniel/todo-app/internal/focus"
 	"github.com/roniel/todo-app/internal/journal"
 	"github.com/roniel/todo-app/internal/task"
+	"github.com/roniel/todo-app/internal/ui"
 )
 
 func main() {
@@ -66,6 +68,9 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Warning: config load failed: %v\n", err)
 		cfg = config.DefaultConfig()
 	}
+
+	// Detect terminal background and initialize color theme.
+	ui.InitTheme(lipgloss.HasDarkBackground())
 
 	m := app.New(taskStore, journalStore, focusStore, cfg)
 	p := tea.NewProgram(m, tea.WithAltScreen())

@@ -684,7 +684,7 @@ func (m Model) View() string {
 			emptyText = "No tasks yet\n\nPress 'a' to add your first task\nPress '?' for help"
 		}
 		listContent = lipgloss.NewStyle().
-			Foreground(gray).
+			Foreground(ui.Gray).
 			Align(lipgloss.Center).
 			Width(listWidth - 4).
 			Render("\n\n" + emptyText)
@@ -722,11 +722,11 @@ func (m Model) View() string {
 				title = "Edit Task"
 			}
 			formView := m.form.View()
-			dialogContent := lipgloss.NewStyle().Bold(true).Foreground(white).Render(title) + "\n\n" + formView
-			dialog := dialogStyle.Render(dialogContent)
+			dialogContent := lipgloss.NewStyle().Bold(true).Foreground(ui.White).Render(title) + "\n\n" + formView
+			dialog := dialogStyle().Render(dialogContent)
 			view = lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, dialog,
 				lipgloss.WithWhitespaceChars(" "),
-				lipgloss.WithWhitespaceForeground(lipgloss.Color("#111111")))
+				lipgloss.WithWhitespaceForeground(ui.OverlayDim))
 		}
 
 	case modeSubtask, modeEditSubtask:
@@ -736,31 +736,31 @@ func (m Model) View() string {
 				title = "Edit Subtask"
 			}
 			formView := m.form.View()
-			dialogContent := lipgloss.NewStyle().Bold(true).Foreground(white).Render(title) + "\n\n" + formView
-			dialog := dialogStyle.Render(dialogContent)
+			dialogContent := lipgloss.NewStyle().Bold(true).Foreground(ui.White).Render(title) + "\n\n" + formView
+			dialog := dialogStyle().Render(dialogContent)
 			view = lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, dialog,
 				lipgloss.WithWhitespaceChars(" "),
-				lipgloss.WithWhitespaceForeground(lipgloss.Color("#111111")))
+				lipgloss.WithWhitespaceForeground(ui.OverlayDim))
 		}
 
 	case modeExport:
 		if m.form != nil {
 			formView := m.form.View()
-			dialogContent := lipgloss.NewStyle().Bold(true).Foreground(white).Render("Export") + "\n\n" + formView
-			dialog := dialogStyle.Render(dialogContent)
+			dialogContent := lipgloss.NewStyle().Bold(true).Foreground(ui.White).Render("Export") + "\n\n" + formView
+			dialog := dialogStyle().Render(dialogContent)
 			view = lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, dialog,
 				lipgloss.WithWhitespaceChars(" "),
-				lipgloss.WithWhitespaceForeground(lipgloss.Color("#111111")))
+				lipgloss.WithWhitespaceForeground(ui.OverlayDim))
 		}
 
 	case modeTimeLog:
 		if m.form != nil {
 			formView := m.form.View()
-			dialogContent := lipgloss.NewStyle().Bold(true).Foreground(white).Render("Log Time") + "\n\n" + formView
-			dialog := dialogStyle.Render(dialogContent)
+			dialogContent := lipgloss.NewStyle().Bold(true).Foreground(ui.White).Render("Log Time") + "\n\n" + formView
+			dialog := dialogStyle().Render(dialogContent)
 			view = lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, dialog,
 				lipgloss.WithWhitespaceChars(" "),
-				lipgloss.WithWhitespaceForeground(lipgloss.Color("#111111")))
+				lipgloss.WithWhitespaceForeground(ui.OverlayDim))
 		}
 
 	case modeConfirmDelete:
@@ -772,7 +772,7 @@ func (m Model) View() string {
 		dialog := ui.RenderConfirmDialogBox("Delete Task?", fmt.Sprintf("Delete \"%s\"?", title))
 		view = lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, dialog,
 			lipgloss.WithWhitespaceChars(" "),
-			lipgloss.WithWhitespaceForeground(lipgloss.Color("#111111")))
+			lipgloss.WithWhitespaceForeground(ui.OverlayDim))
 
 	case modeConfirmDeleteSubtask:
 		selected := m.selectedTask()
@@ -783,7 +783,7 @@ func (m Model) View() string {
 		dialog := ui.RenderConfirmDialogBox("Delete Subtask?", fmt.Sprintf("Delete \"%s\"?", stTitle))
 		view = lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, dialog,
 			lipgloss.WithWhitespaceChars(" "),
-			lipgloss.WithWhitespaceForeground(lipgloss.Color("#111111")))
+			lipgloss.WithWhitespaceForeground(ui.OverlayDim))
 
 	case modeFocusConfirmCancel:
 		remaining := ""
@@ -793,7 +793,7 @@ func (m Model) View() string {
 		dialog := ui.RenderConfirmDialogBox("Cancel Focus?", fmt.Sprintf("Cancel session with %s remaining?", remaining), ui.Yellow)
 		view = lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, dialog,
 			lipgloss.WithWhitespaceChars(" "),
-			lipgloss.WithWhitespaceForeground(lipgloss.Color("#111111")))
+			lipgloss.WithWhitespaceForeground(ui.OverlayDim))
 
 	case modeTagFilter:
 		// Tag filter uses the tag bar + inline selection, no overlay needed.
@@ -802,19 +802,19 @@ func (m Model) View() string {
 		dialog := m.renderBlockerOverlay()
 		view = lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, dialog,
 			lipgloss.WithWhitespaceChars(" "),
-			lipgloss.WithWhitespaceForeground(lipgloss.Color("#111111")))
+			lipgloss.WithWhitespaceForeground(ui.OverlayDim))
 
 	case modeStats:
 		statsView := m.renderStatsOverlay()
 		view = lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, statsView,
 			lipgloss.WithWhitespaceChars(" "),
-			lipgloss.WithWhitespaceForeground(lipgloss.Color("#111111")))
+			lipgloss.WithWhitespaceForeground(ui.OverlayDim))
 
 	case modeHelp:
 		helpView := m.renderHelpOverlay()
 		view = lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, helpView,
 			lipgloss.WithWhitespaceChars(" "),
-			lipgloss.WithWhitespaceForeground(lipgloss.Color("#111111")))
+			lipgloss.WithWhitespaceForeground(ui.OverlayDim))
 	}
 
 	return view

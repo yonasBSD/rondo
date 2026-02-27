@@ -1,4 +1,3 @@
-// internal/app/styles.go
 package app
 
 import (
@@ -7,18 +6,11 @@ import (
 	"github.com/roniel/todo-app/internal/ui"
 )
 
-// Local aliases for convenience.
-var (
-	cyan  = ui.Cyan
-	white = ui.White
-	gray  = ui.Gray
-)
-
-var (
-	// Dialog overlay
-	dialogStyle = lipgloss.NewStyle().
-			Border(lipgloss.DoubleBorder()).
-			BorderForeground(cyan).
-			Padding(1, 2).
-			Width(60)
-)
+// dialogStyle returns the dialog overlay style with the current theme colors.
+func dialogStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Border(lipgloss.DoubleBorder()).
+		BorderForeground(ui.Cyan).
+		Padding(1, 2).
+		Width(60)
+}

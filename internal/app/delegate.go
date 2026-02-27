@@ -120,9 +120,11 @@ func (d taskDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	if isSelected {
 		cursor := lipgloss.NewStyle().Foreground(ui.Cyan).Render("▸")
 		line1 = cursor + strings.TrimPrefix(line1, " ")
-		selStyle := lipgloss.NewStyle().Background(lipgloss.Color("#1a1a2e")).Width(availWidth)
-		line1 = selStyle.Render(line1)
-		line2 = selStyle.Render(line2)
+		if ui.IsDark() {
+			selStyle := lipgloss.NewStyle().Background(ui.SelectionBg).Width(availWidth)
+			line1 = selStyle.Render(line1)
+			line2 = selStyle.Render(line2)
+		}
 	}
 
 	fmt.Fprintf(w, "%s\n%s", line1, line2)

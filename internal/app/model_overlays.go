@@ -18,44 +18,44 @@ func (m Model) renderStatsOverlay() string {
 	s := m.stats
 
 	var lines []string
-	lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(white).Render("Statistics"))
+	lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(ui.White).Render("Statistics"))
 	lines = append(lines, "")
 
 	// Task counts.
-	lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(cyan).Render("Tasks"))
+	lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(ui.Cyan).Render("Tasks"))
 	lines = append(lines, fmt.Sprintf("  Total: %d  Active: %d  Done: %d", s.totalTasks, s.activeTasks, s.doneTasks))
 	lines = append(lines, "")
 
 	// Priority breakdown.
-	lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(cyan).Render("Priority"))
+	lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(ui.Cyan).Render("Priority"))
 	lines = append(lines, "  "+ui.RenderPriorityBreakdown(s.lowCount, s.medCount, s.highCount, s.urgentCount))
 	lines = append(lines, "")
 
 	// Tags.
 	if len(s.tagCounts) > 0 {
-		lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(cyan).Render("Tags"))
+		lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(ui.Cyan).Render("Tags"))
 		lines = append(lines, "  "+ui.RenderTagCloud(s.tagCounts))
 		lines = append(lines, "")
 	}
 
 	// Focus sessions today.
-	lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(cyan).Render("Focus"))
+	lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(ui.Cyan).Render("Focus"))
 	lines = append(lines, fmt.Sprintf("  Sessions today: %d", s.focusToday))
 	lines = append(lines, "")
 
 	// Journal streak.
 	if s.journalStreak != "" {
-		lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(cyan).Render("Journal"))
+		lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(ui.Cyan).Render("Journal"))
 		lines = append(lines, "  "+s.journalStreak)
 		lines = append(lines, "")
 	}
 
-	lines = append(lines, lipgloss.NewStyle().Foreground(gray).Render("Press Esc or G to close"))
+	lines = append(lines, lipgloss.NewStyle().Foreground(ui.Gray).Render("Press Esc or G to close"))
 
 	content := strings.Join(lines, "\n")
 	return lipgloss.NewStyle().
 		Border(lipgloss.DoubleBorder()).
-		BorderForeground(cyan).
+		BorderForeground(ui.Cyan).
 		Padding(1, 3).
 		Width(60).
 		Render(content)
@@ -68,15 +68,15 @@ func (m Model) renderBlockerOverlay() string {
 	}
 
 	var lines []string
-	lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(white).Render("Task Dependencies"))
+	lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(ui.White).Render("Task Dependencies"))
 	lines = append(lines, "")
-	lines = append(lines, lipgloss.NewStyle().Foreground(gray).Render(fmt.Sprintf("Task: %s", selected.Title)))
+	lines = append(lines, lipgloss.NewStyle().Foreground(ui.Gray).Render(fmt.Sprintf("Task: %s", selected.Title)))
 	lines = append(lines, "")
 
 	if len(selected.BlockedByIDs) == 0 {
-		lines = append(lines, lipgloss.NewStyle().Foreground(gray).Render("No blockers"))
+		lines = append(lines, lipgloss.NewStyle().Foreground(ui.Gray).Render("No blockers"))
 	} else {
-		lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(cyan).Render("Blocked by:"))
+		lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(ui.Cyan).Render("Blocked by:"))
 		for _, id := range selected.BlockedByIDs {
 			blocker, err := m.store.GetByID(id)
 			if err != nil {
@@ -93,12 +93,12 @@ func (m Model) renderBlockerOverlay() string {
 	}
 
 	lines = append(lines, "")
-	lines = append(lines, lipgloss.NewStyle().Foreground(gray).Render("Press Esc to close"))
+	lines = append(lines, lipgloss.NewStyle().Foreground(ui.Gray).Render("Press Esc to close"))
 
 	content := strings.Join(lines, "\n")
 	return lipgloss.NewStyle().
 		Border(lipgloss.DoubleBorder()).
-		BorderForeground(cyan).
+		BorderForeground(ui.Cyan).
 		Padding(1, 2).
 		Width(50).
 		Render(content)
@@ -151,9 +151,9 @@ func renderPanel(content, title string, width, height int, focused bool) string 
 		return content
 	}
 
-	borderColor := gray
+	borderColor := ui.Gray
 	if focused {
-		borderColor = cyan
+		borderColor = ui.Cyan
 	}
 
 	bc := lipgloss.NewStyle().Foreground(borderColor)
@@ -232,7 +232,7 @@ func (m Model) renderHelpOverlay() string {
 	}
 
 	var lines []string
-	lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(white).Render("Keyboard Shortcuts"))
+	lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(ui.White).Render("Keyboard Shortcuts"))
 	lines = append(lines, "")
 	for _, h := range helpLines {
 		if h.key == "" && h.desc == "" {
@@ -240,20 +240,20 @@ func (m Model) renderHelpOverlay() string {
 			continue
 		}
 		if h.key == "" {
-			lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(cyan).Render(h.desc))
+			lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(ui.Cyan).Render(h.desc))
 			continue
 		}
-		k := lipgloss.NewStyle().Foreground(cyan).Width(16).Render(h.key)
-		d := lipgloss.NewStyle().Foreground(gray).Render(h.desc)
+		k := lipgloss.NewStyle().Foreground(ui.Cyan).Width(16).Render(h.key)
+		d := lipgloss.NewStyle().Foreground(ui.Gray).Render(h.desc)
 		lines = append(lines, k+d)
 	}
 	lines = append(lines, "")
-	lines = append(lines, lipgloss.NewStyle().Foreground(gray).Render("Press Esc or ? to close"))
+	lines = append(lines, lipgloss.NewStyle().Foreground(ui.Gray).Render("Press Esc or ? to close"))
 
 	content := strings.Join(lines, "\n")
 	return lipgloss.NewStyle().
 		Border(lipgloss.DoubleBorder()).
-		BorderForeground(cyan).
+		BorderForeground(ui.Cyan).
 		Padding(1, 3).
 		Width(50).
 		Render(content)

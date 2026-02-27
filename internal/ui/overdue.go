@@ -43,7 +43,7 @@ func DueStatus(dueDate time.Time) DueLevel {
 func DueStyle(level DueLevel) lipgloss.Style {
 	switch level {
 	case DueOverdue:
-		return lipgloss.NewStyle().Foreground(Red).Bold(true).Blink(true)
+		return lipgloss.NewStyle().Foreground(Red).Bold(true)
 	case DueToday:
 		return lipgloss.NewStyle().Foreground(Yellow).Bold(true)
 	case DueSoon:

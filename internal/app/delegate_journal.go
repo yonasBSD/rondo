@@ -49,8 +49,8 @@ func (d noteDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 			gap = 1
 		}
 		line := left + strings.Repeat(" ", gap) + right
-		if isSelected {
-			line = lipgloss.NewStyle().Background(lipgloss.Color("#1a1a2e")).Render(line)
+		if isSelected && ui.IsDark() {
+			line = lipgloss.NewStyle().Background(ui.SelectionBg).Render(line)
 		}
 		fmt.Fprint(w, line)
 		return
@@ -73,8 +73,8 @@ func (d noteDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 		gap = 1
 	}
 	line := left + strings.Repeat(" ", gap) + right
-	if isSelected {
-		line = lipgloss.NewStyle().Background(lipgloss.Color("#1a1a2e")).Render(line)
+	if isSelected && ui.IsDark() {
+		line = lipgloss.NewStyle().Background(ui.SelectionBg).Render(line)
 	}
 	fmt.Fprint(w, line)
 }

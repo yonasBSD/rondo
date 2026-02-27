@@ -379,7 +379,7 @@ func (m Model) viewJournal(header string) string {
 			emptyText = "All notes are hidden\n\nPress 'H' to reveal them\nor 'a' to start a new one"
 		}
 		listContent = lipgloss.NewStyle().
-			Foreground(gray).
+			Foreground(ui.Gray).
 			Align(lipgloss.Center).
 			Width(listWidth - 4).
 			Render("\n\n" + emptyText)
@@ -446,7 +446,7 @@ func (m Model) renderJournalHelpOverlay() string {
 	}
 
 	var lines []string
-	lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(white).Render("Keyboard Shortcuts"))
+	lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(ui.White).Render("Keyboard Shortcuts"))
 	lines = append(lines, "")
 	for _, h := range helpLines {
 		if h.key == "" && h.desc == "" {
@@ -454,20 +454,20 @@ func (m Model) renderJournalHelpOverlay() string {
 			continue
 		}
 		if h.key == "" {
-			lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(cyan).Render(h.desc))
+			lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(ui.Cyan).Render(h.desc))
 			continue
 		}
-		k := lipgloss.NewStyle().Foreground(cyan).Width(16).Render(h.key)
-		d := lipgloss.NewStyle().Foreground(gray).Render(h.desc)
+		k := lipgloss.NewStyle().Foreground(ui.Cyan).Width(16).Render(h.key)
+		d := lipgloss.NewStyle().Foreground(ui.Gray).Render(h.desc)
 		lines = append(lines, k+d)
 	}
 	lines = append(lines, "")
-	lines = append(lines, lipgloss.NewStyle().Foreground(gray).Render("Press Esc or ? to close"))
+	lines = append(lines, lipgloss.NewStyle().Foreground(ui.Gray).Render("Press Esc or ? to close"))
 
 	content := strings.Join(lines, "\n")
 	return lipgloss.NewStyle().
 		Border(lipgloss.DoubleBorder()).
-		BorderForeground(cyan).
+		BorderForeground(ui.Cyan).
 		Padding(1, 3).
 		Width(50).
 		Render(content)
@@ -483,11 +483,11 @@ func (m Model) renderJournalOverlays(view string) string {
 				title = "Edit Journal Entry"
 			}
 			formView := m.form.View()
-			dialogContent := lipgloss.NewStyle().Bold(true).Foreground(white).Render(title) + "\n\n" + formView
-			dialog := dialogStyle.Render(dialogContent)
+			dialogContent := lipgloss.NewStyle().Bold(true).Foreground(ui.White).Render(title) + "\n\n" + formView
+			dialog := dialogStyle().Render(dialogContent)
 			return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, dialog,
 				lipgloss.WithWhitespaceChars(" "),
-				lipgloss.WithWhitespaceForeground(lipgloss.Color("#111111")))
+				lipgloss.WithWhitespaceForeground(ui.OverlayDim))
 		}
 
 	case modeJournalConfirmDelete:
@@ -502,7 +502,7 @@ func (m Model) renderJournalOverlays(view string) string {
 			dialog := ui.RenderConfirmDialogBox("Delete Entry?", msg)
 			return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, dialog,
 				lipgloss.WithWhitespaceChars(" "),
-				lipgloss.WithWhitespaceForeground(lipgloss.Color("#111111")))
+				lipgloss.WithWhitespaceForeground(ui.OverlayDim))
 		}
 
 	case modeJournalConfirmHide:
@@ -519,20 +519,20 @@ func (m Model) renderJournalOverlays(view string) string {
 			dialog := ui.RenderConfirmDialogBox(action+" Note?", message, borderColor)
 			return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, dialog,
 				lipgloss.WithWhitespaceChars(" "),
-				lipgloss.WithWhitespaceForeground(lipgloss.Color("#111111")))
+				lipgloss.WithWhitespaceForeground(ui.OverlayDim))
 		}
 
 	case modeHelp:
 		helpView := m.renderJournalHelpOverlay()
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, helpView,
 			lipgloss.WithWhitespaceChars(" "),
-			lipgloss.WithWhitespaceForeground(lipgloss.Color("#111111")))
+			lipgloss.WithWhitespaceForeground(ui.OverlayDim))
 
 	case modeStats:
 		statsView := m.renderStatsOverlay()
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, statsView,
 			lipgloss.WithWhitespaceChars(" "),
-			lipgloss.WithWhitespaceForeground(lipgloss.Color("#111111")))
+			lipgloss.WithWhitespaceForeground(ui.OverlayDim))
 
 	case modeFocusConfirmCancel:
 		remaining := ""
@@ -542,7 +542,7 @@ func (m Model) renderJournalOverlays(view string) string {
 		dialog := ui.RenderConfirmDialogBox("Cancel Focus?", fmt.Sprintf("Cancel session with %s?", remaining), ui.Yellow)
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, dialog,
 			lipgloss.WithWhitespaceChars(" "),
-			lipgloss.WithWhitespaceForeground(lipgloss.Color("#111111")))
+			lipgloss.WithWhitespaceForeground(ui.OverlayDim))
 	}
 	return view
 }
