@@ -102,15 +102,60 @@ mv rondo /usr/local/bin/
 
 ### CLI Mode
 
-Run subcommands directly from the terminal without entering the TUI:
+Full-featured CLI with styled terminal output (auto-detected), JSON support, and shell completions.
 
 ```bash
-rondo add "Buy groceries"          # Add a task
-rondo done 3                       # Mark task #3 as done
-rondo list                         # List tasks
-rondo journal "Productive day"     # Add journal entry
-rondo export                       # Export data
+# Tasks
+rondo add "Buy groceries" --priority high --due 2026-03-15 --tags "home,shopping"
+rondo list --status pending --sort priority --limit 10
+rondo list --priority urgent --overdue --format json
+rondo show 3
+rondo edit 3 --title "Buy organic groceries" --due 2026-03-20
+rondo done 3 4 5
+rondo delete 3 --force
+rondo status 3 active
+
+# Subtasks
+rondo subtask add 3 "Pick up milk"
+rondo subtask list 3
+rondo subtask done 3 1
+
+# Time tracking
+rondo timelog add 3 1h30m --note "Deep work session"
+rondo timelog list 3
+rondo timelog summary --days 30
+
+# Recurrence
+rondo recur set 3 weekly
+rondo recur clear 3
+
+# Journal
+rondo journal "Productive day"
+rondo journal add "Wrapped up the feature" --date yesterday
+rondo journal list
+rondo journal show today
+
+# Focus (Pomodoro)
+rondo focus start --task-id 3 --duration 25m
+rondo focus status
+rondo focus stats --days 14
+
+# Utilities
+rondo stats                        # Task + focus summary
+rondo export --format json --journal --output backup.json
+rondo config list                  # View all settings
+rondo config set focus.work_duration_min 30
+rondo completion zsh               # Shell completions
 ```
+
+#### Global Flags
+
+| Flag | Description |
+|------|-------------|
+| `--format table\|json` | Output format (default: table) |
+| `--json` | Shorthand for `--format json` |
+| `-q, --quiet` | Suppress non-essential output |
+| `--no-color` | Disable ANSI colors (auto-detected when piped) |
 
 ## Keyboard Shortcuts
 
@@ -192,10 +237,20 @@ internal/
     delegate.go                 # Task list item delegate
     delegate_journal.go         # Journal note list item delegate
   cli/
-    cli.go                      # CLI subcommand dispatcher
-    tasks.go                    # add, done, list commands
-    journal.go                  # journal command
-    export.go                   # export command
+    cli.go                      # Cobra root command + global flags
+    output.go                   # Styled output (TTY-aware tables, colors)
+    errors.go                   # NotFoundError type
+    confirm.go                  # Confirmation prompts
+    tasks.go                    # add, done, list, show, edit, delete, status
+    journal.go                  # journal (add, list, show, edit, delete, hide)
+    export.go                   # export (md, json, file output)
+    subtasks.go                 # subtask (add, list, done, edit, delete)
+    timelog.go                  # timelog (add, list, summary)
+    recur.go                    # recur (set, clear)
+    focus.go                    # focus (start, status, stats)
+    stats.go                    # stats (task + focus summary)
+    config_cmd.go               # config (list, get, set, reset)
+    completion.go               # Shell completion (bash, zsh, fish, powershell)
   config/
     config.go                   # JSON config (~/.todo-app/config.json)
   database/
@@ -237,6 +292,7 @@ go mod tidy             # Tidy deps
 [Bubbles](https://github.com/charmbracelet/bubbles) ·
 [Lip Gloss](https://github.com/charmbracelet/lipgloss) ·
 [Huh](https://github.com/charmbracelet/huh) ·
+[Cobra](https://github.com/spf13/cobra) ·
 [modernc.org/sqlite](https://pkg.go.dev/modernc.org/sqlite)
 
 ## License

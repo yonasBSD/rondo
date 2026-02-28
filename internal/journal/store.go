@@ -3,6 +3,7 @@ package journal
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -103,10 +104,10 @@ func (s *Store) ListNotes(includeHidden bool) ([]Note, error) {
 	return notes, nil
 }
 
-// GetOrCreateToday returns today's note, creating it if it does not exist.
-func (s *Store) GetOrCreateToday() (*Note, error) {
+// GetOrCreate returns the note for dateStr (YYYY-MM-DD format), creating it
+// if it does not exist.
+func (s *Store) GetOrCreate(dateStr string) (*Note, error) {
 	now := time.Now()
-	dateStr := now.Format(time.DateOnly)
 	nowStr := now.Format(time.RFC3339)
 
 	_, err := s.db.Exec(
@@ -114,7 +115,7 @@ func (s *Store) GetOrCreateToday() (*Note, error) {
 		dateStr, nowStr, nowStr,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("create today note: %w", err)
+		return nil, fmt.Errorf("create note for %s: %w", dateStr, err)
 	}
 
 	var n Note
@@ -124,22 +125,22 @@ func (s *Store) GetOrCreateToday() (*Note, error) {
 		`SELECT id, date, hidden, created_at, updated_at FROM journal_notes WHERE date = ?`, dateStr,
 	).Scan(&n.ID, &dStr, &hidden, &createdAt, &updatedAt)
 	if err != nil {
-		return nil, fmt.Errorf("get today note: %w", err)
+		return nil, fmt.Errorf("get note for %s: %w", dateStr, err)
 	}
 	n.Hidden = hidden != 0
 	d, err := time.ParseInLocation(time.DateOnly, dStr, time.Local)
 	if err != nil {
-		return nil, fmt.Errorf("parse today note date %q: %w", dStr, err)
+		return nil, fmt.Errorf("parse note date %q: %w", dStr, err)
 	}
 	n.Date = d
 	t, err := time.Parse(time.RFC3339, createdAt)
 	if err != nil {
-		return nil, fmt.Errorf("parse today note created_at %q: %w", createdAt, err)
+		return nil, fmt.Errorf("parse note created_at %q: %w", createdAt, err)
 	}
 	n.CreatedAt = t
 	t, err = time.Parse(time.RFC3339, updatedAt)
 	if err != nil {
-		return nil, fmt.Errorf("parse today note updated_at %q: %w", updatedAt, err)
+		return nil, fmt.Errorf("parse note updated_at %q: %w", updatedAt, err)
 	}
 	n.UpdatedAt = t
 
@@ -148,6 +149,11 @@ func (s *Store) GetOrCreateToday() (*Note, error) {
 		return nil, err
 	}
 	return &n, nil
+}
+
+// GetOrCreateToday returns today's note, creating it if it does not exist.
+func (s *Store) GetOrCreateToday() (*Note, error) {
+	return s.GetOrCreate(time.Now().Format(time.DateOnly))
 }
 
 // AddEntry appends a new entry to the given note.
@@ -234,20 +240,29 @@ func (s *Store) ToggleHidden(noteID int64) error {
 	return nil
 }
 
-// listAllEntries batch-loads entries for all given notes in a single query.
+// listAllEntries batch-loads entries for the given notes in a single query.
 func (s *Store) listAllEntries(notes []Note) (map[int64][]Entry, error) {
-	rows, err := s.db.Query(
-		`SELECT id, note_id, body, created_at FROM journal_entries ORDER BY created_at ASC`,
+	if len(notes) == 0 {
+		return nil, nil
+	}
+
+	// Build parameterized IN clause for the note IDs.
+	placeholders := make([]string, len(notes))
+	args := make([]any, len(notes))
+	for i, n := range notes {
+		placeholders[i] = "?"
+		args[i] = n.ID
+	}
+	query := fmt.Sprintf(
+		`SELECT id, note_id, body, created_at FROM journal_entries WHERE note_id IN (%s) ORDER BY created_at ASC`,
+		strings.Join(placeholders, ","),
 	)
+
+	rows, err := s.db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-
-	noteIDs := make(map[int64]bool, len(notes))
-	for _, n := range notes {
-		noteIDs[n.ID] = true
-	}
 
 	result := make(map[int64][]Entry, len(notes))
 	for rows.Next() {
@@ -255,9 +270,6 @@ func (s *Store) listAllEntries(notes []Note) (map[int64][]Entry, error) {
 		var createdAt string
 		if err := rows.Scan(&e.ID, &e.NoteID, &e.Body, &createdAt); err != nil {
 			return nil, err
-		}
-		if !noteIDs[e.NoteID] {
-			continue
 		}
 		t, err := time.Parse(time.RFC3339, createdAt)
 		if err != nil {

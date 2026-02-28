@@ -8,9 +8,11 @@
 - **Language**: Go 1.23+
 - **TUI Framework**: Bubbletea v1.3.x (MVU pattern)
 - **Components**: Bubbles v1.0.x (list, viewport, help, key, textinput)
-- **Styling**: Lip Gloss v1.1.x
+- **Styling**: Lip Gloss v1.1.x (including lipgloss/table for styled CLI tables)
 - **Forms**: Huh v0.8.x (task add/edit dialogs)
+- **CLI Framework**: Cobra v1.10.x (subcommands, flags, completions)
 - **Database**: SQLite via modernc.org/sqlite (CGO-free)
+- **Terminal Detection**: charmbracelet/x/term (width), go-isatty (TTY detection)
 
 ### Key Dependencies (`go.mod`)
 ```
@@ -18,6 +20,8 @@ github.com/charmbracelet/bubbletea v1.3.10
 github.com/charmbracelet/bubbles v1.0.0
 github.com/charmbracelet/lipgloss v1.1.0
 github.com/charmbracelet/huh v0.8.0
+github.com/charmbracelet/x/term v0.2.2
+github.com/spf13/cobra v1.10.2
 modernc.org/sqlite v1.46.1
 ```
 
@@ -36,6 +40,9 @@ modernc.org/sqlite v1.46.1
 - **Search**: Fuzzy search/filter via built-in bubbles list filtering
 - **Priority Levels**: Low, Medium, High, Urgent with color coding
 - **Tags**: Comma-separated tag support
+- **Recurring Tasks**: Daily, weekly, monthly, or yearly recurrence; auto-spawns next occurrence on completion
+- **Task Dependencies**: Block tasks by other task IDs
+- **Time Logging**: Log time spent on tasks with optional notes
 
 ### Journal
 - **Daily Notes**: One note per calendar day, auto-created
@@ -56,12 +63,22 @@ modernc.org/sqlite v1.46.1
 
 ### General
 - Keyboard-driven navigation (vim-style j/k + arrows)
-- Two-panel layout with focus switching (1/2 keys)
+- Two-panel layout with focus switching (1/2 keys), resizable with `<`/`>`
 - Status bar with context-sensitive keybinding hints
 - Confirmation dialogs for all destructive actions
 - Huh forms with validation for all input
-- Dark theme with cyan accent colors
+- Adaptive color theme (auto-detects light/dark terminal)
 - Persistence via SQLite at `~/.todo-app/todo.db`
+- Auto backups at `~/.todo-app/backups/`
+- Config file at `~/.todo-app/config.json`
+- Undo last destructive action (`Ctrl+Z`)
+
+### CLI Mode
+Full Cobra-based CLI with all features available as subcommands:
+- **Global flags**: `--format table|json`, `--json`, `--quiet`, `--no-color`
+- **TTY-aware output**: Styled tables with Unicode borders + ANSI colors when TTY; plain tabwriter when piped
+- **Commands**: `add`, `done`, `list`, `show`, `edit`, `delete`, `status`, `subtask`, `timelog`, `recur`, `journal`, `focus`, `export`, `stats`, `config`, `completion`
+- **Shell completions**: bash, zsh, fish, powershell via `rondo completion`
 
 ### UI Layout
 ```
@@ -88,28 +105,55 @@ modernc.org/sqlite v1.46.1
 
 ### Project Structure
 ```
-cmd/todo/main.go                # Entry point
+cmd/todo/main.go                # Entry point (TUI + CLI dispatch)
 internal/
   app/
     model.go                    # Main Bubbletea Model + Update + View
-    model_journal.go            # Journal tab handlers (update, form, confirm, view)
+    model_journal.go            # Journal tab handlers
+    model_forms.go              # Form submission + confirmation dialogs
+    model_overlays.go           # Help, stats, blocker overlays + panel renderer
+    model_tasks.go              # Task list helpers (filter, sort, reload, export)
+    model_features.go           # Feature handlers (focus, tags, undo, blockers)
     keys.go                     # KeyMap definitions (key.Binding)
     styles.go                   # Lip Gloss styles (cyan accent dark theme)
     delegate.go                 # Custom list.ItemDelegate for task rendering
     delegate_journal.go         # Custom list.ItemDelegate for journal notes
+  cli/
+    cli.go                      # Cobra root command + global flags
+    output.go                   # Styled output (Printer, TTY-aware tables, colors)
+    errors.go                   # NotFoundError type with errors.As support
+    confirm.go                  # Confirmation prompts (styled when TTY)
+    tasks.go                    # add, done, list, show, edit, delete, status
+    journal.go                  # journal (add, list, show, edit, delete, hide)
+    export.go                   # export (md, json, file output with buffered flush)
+    subtasks.go                 # subtask (add, list, done, edit, delete)
+    timelog.go                  # timelog (add, list, summary)
+    recur.go                    # recur (set, clear)
+    focus.go                    # focus (start, status, stats)
+    stats.go                    # stats (task + focus summary)
+    config_cmd.go               # config (list, get, set, reset)
+    completion.go               # Shell completion (bash, zsh, fish, powershell)
+  config/
+    config.go                   # JSON config (~/.todo-app/config.json)
   database/
-    db.go                       # SQLite connection (WAL mode, foreign keys)
+    db.go                       # SQLite connection (WAL mode) + daily backup
+  export/
+    export.go                   # Markdown + JSON export writers
+  focus/
+    focus.go                    # Focus/Pomodoro session model
+    store.go                    # Focus session SQLite repository
   journal/
     journal.go                  # Domain model (Note, Entry, DateTitle)
     store.go                    # SQLite repository (CRUD, batch queries, transactions)
   task/
     task.go                     # Domain model (Task, Subtask, Status, Priority)
-    store.go                    # SQLite repository (CRUD, subtasks, tags)
+    store.go                    # SQLite repository (CRUD, subtasks, tags, time logs)
+    recur.go                    # Recurring task logic + next due date calculation
+    timelog.go                  # Time log model + duration parsing/formatting
   ui/
-    colors.go                   # Shared color palette
+    colors.go                   # Shared color palette (adaptive light/dark)
     views.go                    # View rendering (tabs, detail, status bar, dialogs)
     form.go                     # Huh form builders + form data types
-go.mod / go.sum
 ```
 
 ### Data Model
@@ -118,12 +162,19 @@ go.mod / go.sum
 type Task struct {
     ID, Title, Description, Status, Priority
     DueDate, CreatedAt, UpdatedAt
-    Subtasks []Subtask
-    Tags     []string
+    RecurFreq, RecurInterval        // Recurrence (daily, weekly, monthly, yearly)
+    BlockedByIDs []int64            // Task dependency IDs
+    Subtasks     []Subtask
+    Tags         []string
+    TimeLogs     []TimeLog
 }
 
 type Subtask struct {
     ID, Title, Completed, Position
+}
+
+type TimeLog struct {
+    ID, TaskID, Duration, Note, LoggedAt
 }
 
 // Journal
@@ -134,6 +185,12 @@ type Note struct {
 
 type Entry struct {
     ID, NoteID, Body, CreatedAt
+}
+
+// Focus (Pomodoro)
+type Session struct {
+    ID, TaskID, Duration, StartedAt, CompletedAt
+    Kind (Work/ShortBreak/LongBreak), CyclePos
 }
 ```
 
@@ -153,14 +210,19 @@ The app uses a mode enum to track UI state:
 - **`reload()` / `reloadJournal()`** return errors, callers handle them
 - **Cursor tracking**: `subtaskIdx` for task detail, `entryIdx` for journal entries
 - **Confirm dialogs**: `ui.RenderConfirmDialogBox` with variadic border color
-- **Batch queries**: Journal entries loaded in a single query (no N+1)
+- **Batch queries**: Journal entries loaded with `WHERE note_id IN (...)` (no N+1)
 - **Transactions**: All multi-statement writes use `db.Begin()`/`tx.Commit()`
 - **Date parsing**: `time.ParseInLocation` for date-only fields (timezone-correct)
+- **Printer pattern**: `cli/output.go` — `Printer` struct with `noColor`/`quiet` flags; methods: `Table()`, `Success()`, `Bold()`, `Dim()`, `Colored()`, `JSON()`
+- **TTY detection**: `isTTY()` via `go-isatty` (not `ModeCharDevice`); auto-disables color when piped unless `--no-color` explicitly set
+- **Styled tables**: lipgloss/table with `RoundedBorder()` when TTY, tabwriter fallback when piped; `writerWidth()` constrains to terminal width
 
 ### SQLite Schema
 Database at `~/.todo-app/todo.db` with tables:
-- `tasks`, `subtasks`, `tags` — task management (ON DELETE CASCADE)
+- `tasks`, `subtasks`, `tags`, `task_blocks` — task management (ON DELETE CASCADE)
+- `time_logs` — time tracking per task
 - `journal_notes`, `journal_entries` — journal (ON DELETE CASCADE, indexed)
+- `focus_sessions` — Pomodoro session tracking
 
 ---
 
@@ -274,8 +336,9 @@ go mod tidy
 
 ---
 
-## Charm Ecosystem Links
+## Ecosystem Links
 - Bubbletea: https://github.com/charmbracelet/bubbletea
 - Bubbles: https://github.com/charmbracelet/bubbles
 - Lip Gloss: https://github.com/charmbracelet/lipgloss
 - Huh: https://github.com/charmbracelet/huh
+- Cobra: https://github.com/spf13/cobra

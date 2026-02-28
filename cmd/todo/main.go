@@ -53,20 +53,23 @@ func main() {
 		os.Exit(1)
 	}
 
-	// CLI subcommands: if args are provided, dispatch to CLI instead of TUI.
-	if len(os.Args) > 1 {
-		if err := cli.Run(os.Args[1:], taskStore, journalStore); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-		return
-	}
-
-	// Load config.
+	// Load config early so it's available to both CLI and TUI.
 	cfg, err := config.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: config load failed: %v\n", err)
 		cfg = config.DefaultConfig()
+	}
+
+	// CLI subcommands: if args are provided, dispatch to CLI instead of TUI.
+	if len(os.Args) > 1 {
+		if err := cli.Run(os.Args[1:], taskStore, journalStore, focusStore, cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			if cli.IsNotFound(err) {
+				os.Exit(3)
+			}
+			os.Exit(1)
+		}
+		return
 	}
 
 	// Detect terminal background and initialize color theme.

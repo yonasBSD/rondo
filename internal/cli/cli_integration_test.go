@@ -6,9 +6,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/roniel/todo-app/internal/config"
 	"github.com/roniel/todo-app/internal/journal"
 	"github.com/roniel/todo-app/internal/task"
 
@@ -46,6 +48,12 @@ func newTestStores(t *testing.T) (*task.Store, *journal.Store) {
 	return ts, js
 }
 
+// run is a convenience wrapper that calls Run with nil focusStore and default config.
+func run(t *testing.T, args []string, ts *task.Store, js *journal.Store) error {
+	t.Helper()
+	return Run(args, ts, js, nil, config.Config{})
+}
+
 // captureStdout runs fn while capturing everything written to os.Stdout.
 func captureStdout(t *testing.T, fn func()) string {
 	t.Helper()
@@ -73,10 +81,10 @@ func captureStdout(t *testing.T, fn func()) string {
 // ---------------------------------------------------------------------------
 
 func TestIntegration_Add_Basic(t *testing.T) {
-	ts, _ := newTestStores(t)
+	ts, js := newTestStores(t)
 
-	if err := cmdAdd([]string{"Buy milk"}, ts); err != nil {
-		t.Fatalf("cmdAdd: %v", err)
+	if err := run(t, []string{"add", "Buy milk"}, ts, js); err != nil {
+		t.Fatalf("add: %v", err)
 	}
 
 	tasks, err := ts.List()
@@ -99,11 +107,11 @@ func TestIntegration_Add_Basic(t *testing.T) {
 }
 
 func TestIntegration_Add_AllFlags(t *testing.T) {
-	ts, _ := newTestStores(t)
+	ts, js := newTestStores(t)
 
-	args := []string{"--priority", "high", "--due", "2026-03-15", "--tags", "home,shopping", "Big task"}
-	if err := cmdAdd(args, ts); err != nil {
-		t.Fatalf("cmdAdd: %v", err)
+	args := []string{"add", "--priority", "high", "--due", "2026-03-15", "--tags", "home,shopping", "Big task"}
+	if err := run(t, args, ts, js); err != nil {
+		t.Fatalf("add: %v", err)
 	}
 
 	tasks, err := ts.List()
@@ -135,11 +143,11 @@ func TestIntegration_Add_AllFlags(t *testing.T) {
 }
 
 func TestIntegration_Add_Multiple(t *testing.T) {
-	ts, _ := newTestStores(t)
+	ts, js := newTestStores(t)
 
 	for _, title := range []string{"Task 1", "Task 2", "Task 3"} {
-		if err := cmdAdd([]string{title}, ts); err != nil {
-			t.Fatalf("cmdAdd(%q): %v", title, err)
+		if err := run(t, []string{"add", title}, ts, js); err != nil {
+			t.Fatalf("add(%q): %v", title, err)
 		}
 	}
 
@@ -157,10 +165,10 @@ func TestIntegration_Add_Multiple(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestIntegration_Done(t *testing.T) {
-	ts, _ := newTestStores(t)
+	ts, js := newTestStores(t)
 
-	if err := cmdAdd([]string{"Finish report"}, ts); err != nil {
-		t.Fatalf("cmdAdd: %v", err)
+	if err := run(t, []string{"add", "Finish report"}, ts, js); err != nil {
+		t.Fatalf("add: %v", err)
 	}
 
 	tasks, err := ts.List()
@@ -169,8 +177,8 @@ func TestIntegration_Done(t *testing.T) {
 	}
 	id := tasks[0].ID
 
-	if err := cmdDone([]string{"1"}, ts); err != nil {
-		t.Fatalf("cmdDone: %v", err)
+	if err := run(t, []string{"done", strconv.FormatInt(id, 10)}, ts, js); err != nil {
+		t.Fatalf("done: %v", err)
 	}
 
 	got, err := ts.GetByID(id)
@@ -183,9 +191,9 @@ func TestIntegration_Done(t *testing.T) {
 }
 
 func TestIntegration_Done_NotFound(t *testing.T) {
-	ts, _ := newTestStores(t)
+	ts, js := newTestStores(t)
 
-	err := cmdDone([]string{"999"}, ts)
+	err := run(t, []string{"done", "999"}, ts, js)
 	if err == nil {
 		t.Fatal("expected error for non-existent task, got nil")
 	}
@@ -199,14 +207,14 @@ func TestIntegration_Done_NotFound(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestIntegration_List_Table(t *testing.T) {
-	ts, _ := newTestStores(t)
+	ts, js := newTestStores(t)
 
-	cmdAdd([]string{"Alpha"}, ts)
-	cmdAdd([]string{"Beta"}, ts)
+	run(t, []string{"add", "Alpha"}, ts, js)
+	run(t, []string{"add", "Beta"}, ts, js)
 
 	out := captureStdout(t, func() {
-		if err := cmdList(nil, ts); err != nil {
-			t.Fatalf("cmdList: %v", err)
+		if err := run(t, []string{"list"}, ts, js); err != nil {
+			t.Fatalf("list: %v", err)
 		}
 	})
 
@@ -222,13 +230,13 @@ func TestIntegration_List_Table(t *testing.T) {
 }
 
 func TestIntegration_List_JSON(t *testing.T) {
-	ts, _ := newTestStores(t)
+	ts, js := newTestStores(t)
 
-	cmdAdd([]string{"JSON task"}, ts)
+	run(t, []string{"add", "JSON task"}, ts, js)
 
 	out := captureStdout(t, func() {
-		if err := cmdList([]string{"--format", "json"}, ts); err != nil {
-			t.Fatalf("cmdList json: %v", err)
+		if err := run(t, []string{"list", "--format", "json"}, ts, js); err != nil {
+			t.Fatalf("list json: %v", err)
 		}
 	})
 
@@ -242,15 +250,15 @@ func TestIntegration_List_JSON(t *testing.T) {
 }
 
 func TestIntegration_List_FilterDone(t *testing.T) {
-	ts, _ := newTestStores(t)
+	ts, js := newTestStores(t)
 
-	cmdAdd([]string{"Stay pending"}, ts)
-	cmdAdd([]string{"Mark done"}, ts)
-	cmdDone([]string{"2"}, ts)
+	run(t, []string{"add", "Stay pending"}, ts, js)
+	run(t, []string{"add", "Mark done"}, ts, js)
+	run(t, []string{"done", "2"}, ts, js)
 
 	out := captureStdout(t, func() {
-		if err := cmdList([]string{"--status", "done"}, ts); err != nil {
-			t.Fatalf("cmdList --status done: %v", err)
+		if err := run(t, []string{"list", "--status", "done"}, ts, js); err != nil {
+			t.Fatalf("list --status done: %v", err)
 		}
 	})
 
@@ -263,15 +271,15 @@ func TestIntegration_List_FilterDone(t *testing.T) {
 }
 
 func TestIntegration_List_FilterPending(t *testing.T) {
-	ts, _ := newTestStores(t)
+	ts, js := newTestStores(t)
 
-	cmdAdd([]string{"Pending one"}, ts)
-	cmdAdd([]string{"Done one"}, ts)
-	cmdDone([]string{"2"}, ts)
+	run(t, []string{"add", "Pending one"}, ts, js)
+	run(t, []string{"add", "Done one"}, ts, js)
+	run(t, []string{"done", "2"}, ts, js)
 
 	out := captureStdout(t, func() {
-		if err := cmdList([]string{"--status", "pending"}, ts); err != nil {
-			t.Fatalf("cmdList --status pending: %v", err)
+		if err := run(t, []string{"list", "--status", "pending"}, ts, js); err != nil {
+			t.Fatalf("list --status pending: %v", err)
 		}
 	})
 
@@ -288,10 +296,10 @@ func TestIntegration_List_FilterPending(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestIntegration_JournalAdd(t *testing.T) {
-	_, js := newTestStores(t)
+	ts, js := newTestStores(t)
 
-	if err := cmdJournalAdd([]string{"Great day"}, js); err != nil {
-		t.Fatalf("cmdJournalAdd: %v", err)
+	if err := run(t, []string{"journal", "Great day"}, ts, js); err != nil {
+		t.Fatalf("journal: %v", err)
 	}
 
 	notes, err := js.ListNotes(false)
@@ -312,10 +320,10 @@ func TestIntegration_JournalAdd(t *testing.T) {
 }
 
 func TestIntegration_JournalAdd_MultipleWords(t *testing.T) {
-	_, js := newTestStores(t)
+	ts, js := newTestStores(t)
 
-	if err := cmdJournalAdd([]string{"Hello", "world"}, js); err != nil {
-		t.Fatalf("cmdJournalAdd: %v", err)
+	if err := run(t, []string{"journal", "Hello", "world"}, ts, js); err != nil {
+		t.Fatalf("journal: %v", err)
 	}
 
 	notes, err := js.ListNotes(false)
@@ -337,11 +345,11 @@ func TestIntegration_JournalAdd_MultipleWords(t *testing.T) {
 func TestIntegration_Export_Markdown(t *testing.T) {
 	ts, js := newTestStores(t)
 
-	cmdAdd([]string{"Export me"}, ts)
+	run(t, []string{"add", "Export me"}, ts, js)
 
 	out := captureStdout(t, func() {
-		if err := cmdExport([]string{"--format", "md"}, ts, js); err != nil {
-			t.Fatalf("cmdExport md: %v", err)
+		if err := run(t, []string{"export", "--format", "md"}, ts, js); err != nil {
+			t.Fatalf("export md: %v", err)
 		}
 	})
 
@@ -356,11 +364,11 @@ func TestIntegration_Export_Markdown(t *testing.T) {
 func TestIntegration_Export_JSON(t *testing.T) {
 	ts, js := newTestStores(t)
 
-	cmdAdd([]string{"JSON export"}, ts)
+	run(t, []string{"add", "JSON export"}, ts, js)
 
 	out := captureStdout(t, func() {
-		if err := cmdExport([]string{"--format", "json"}, ts, js); err != nil {
-			t.Fatalf("cmdExport json: %v", err)
+		if err := run(t, []string{"export", "--format", "json"}, ts, js); err != nil {
+			t.Fatalf("export json: %v", err)
 		}
 	})
 
@@ -376,11 +384,11 @@ func TestIntegration_Export_JSON(t *testing.T) {
 func TestIntegration_Export_ToFile(t *testing.T) {
 	ts, js := newTestStores(t)
 
-	cmdAdd([]string{"File export"}, ts)
+	run(t, []string{"add", "File export"}, ts, js)
 
 	tmpFile := filepath.Join(t.TempDir(), "export.md")
-	if err := cmdExport([]string{"--format", "md", "--output", tmpFile}, ts, js); err != nil {
-		t.Fatalf("cmdExport to file: %v", err)
+	if err := run(t, []string{"export", "--format", "md", "--output", tmpFile}, ts, js); err != nil {
+		t.Fatalf("export to file: %v", err)
 	}
 
 	data, err := os.ReadFile(tmpFile)
@@ -399,12 +407,12 @@ func TestIntegration_Export_ToFile(t *testing.T) {
 func TestIntegration_Export_WithJournal(t *testing.T) {
 	ts, js := newTestStores(t)
 
-	cmdAdd([]string{"My task"}, ts)
-	cmdJournalAdd([]string{"My entry"}, js)
+	run(t, []string{"add", "My task"}, ts, js)
+	run(t, []string{"journal", "My entry"}, ts, js)
 
 	out := captureStdout(t, func() {
-		if err := cmdExport([]string{"--format", "md", "--journal"}, ts, js); err != nil {
-			t.Fatalf("cmdExport with journal: %v", err)
+		if err := run(t, []string{"export", "--format", "md", "--journal"}, ts, js); err != nil {
+			t.Fatalf("export with journal: %v", err)
 		}
 	})
 
@@ -417,13 +425,417 @@ func TestIntegration_Export_WithJournal(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// show command
+// ---------------------------------------------------------------------------
+
+func TestIntegration_Show_Table(t *testing.T) {
+	ts, js := newTestStores(t)
+	run(t, []string{"add", "--desc", "My description", "Show me"}, ts, js)
+
+	tasks, _ := ts.List()
+	id := tasks[0].ID
+
+	out := captureStdout(t, func() {
+		if err := run(t, []string{"show", strconv.FormatInt(id, 10)}, ts, js); err != nil {
+			t.Fatalf("show: %v", err)
+		}
+	})
+
+	if !strings.Contains(out, "Show me") {
+		t.Errorf("output missing title:\n%s", out)
+	}
+	if !strings.Contains(out, "My description") {
+		t.Errorf("output missing description:\n%s", out)
+	}
+}
+
+func TestIntegration_Show_JSON(t *testing.T) {
+	ts, js := newTestStores(t)
+	run(t, []string{"add", "--desc", "desc here", "JSON show"}, ts, js)
+	tasks, _ := ts.List()
+	id := tasks[0].ID
+
+	out := captureStdout(t, func() {
+		if err := run(t, []string{"show", "--format", "json", strconv.FormatInt(id, 10)}, ts, js); err != nil {
+			t.Fatalf("show json: %v", err)
+		}
+	})
+
+	var result map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("invalid JSON: %v\noutput: %s", err, out)
+	}
+	if !strings.Contains(out, "JSON show") {
+		t.Errorf("output missing title:\n%s", out)
+	}
+	if !strings.Contains(out, "desc here") {
+		t.Errorf("output missing description:\n%s", out)
+	}
+}
+
+func TestIntegration_Show_NotFound(t *testing.T) {
+	ts, js := newTestStores(t)
+	err := run(t, []string{"show", "999"}, ts, js)
+	if err == nil {
+		t.Fatal("expected error for non-existent task, got nil")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("error = %q, want it to contain %q", err.Error(), "not found")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// edit command
+// ---------------------------------------------------------------------------
+
+func TestIntegration_Edit_Title(t *testing.T) {
+	ts, js := newTestStores(t)
+	run(t, []string{"add", "Original title"}, ts, js)
+	tasks, _ := ts.List()
+	id := strconv.FormatInt(tasks[0].ID, 10)
+
+	if err := run(t, []string{"edit", id, "--title", "Updated title"}, ts, js); err != nil {
+		t.Fatalf("edit: %v", err)
+	}
+
+	got, err := ts.GetByID(tasks[0].ID)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+	if got.Title != "Updated title" {
+		t.Errorf("Title = %q, want %q", got.Title, "Updated title")
+	}
+}
+
+func TestIntegration_Edit_Priority(t *testing.T) {
+	ts, js := newTestStores(t)
+	run(t, []string{"add", "My task"}, ts, js)
+	tasks, _ := ts.List()
+	id := strconv.FormatInt(tasks[0].ID, 10)
+
+	if err := run(t, []string{"edit", id, "--priority", "urgent"}, ts, js); err != nil {
+		t.Fatalf("edit: %v", err)
+	}
+
+	got, _ := ts.GetByID(tasks[0].ID)
+	if got.Priority != task.Urgent {
+		t.Errorf("Priority = %v, want Urgent", got.Priority)
+	}
+}
+
+func TestIntegration_Edit_NoFlags(t *testing.T) {
+	ts, js := newTestStores(t)
+	run(t, []string{"add", "My task"}, ts, js)
+	tasks, _ := ts.List()
+
+	err := run(t, []string{"edit", strconv.FormatInt(tasks[0].ID, 10)}, ts, js)
+	if err == nil {
+		t.Fatal("expected error for edit with no flags, got nil")
+	}
+}
+
+func TestIntegration_Edit_NotFound(t *testing.T) {
+	ts, js := newTestStores(t)
+	err := run(t, []string{"edit", "999", "--title", "x"}, ts, js)
+	if err == nil {
+		t.Fatal("expected error for non-existent task, got nil")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("error = %q, want it to contain %q", err.Error(), "not found")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// delete command
+// ---------------------------------------------------------------------------
+
+func TestIntegration_Delete_Force(t *testing.T) {
+	ts, js := newTestStores(t)
+	run(t, []string{"add", "Bye"}, ts, js)
+	tasks, _ := ts.List()
+	id := strconv.FormatInt(tasks[0].ID, 10)
+
+	if err := run(t, []string{"delete", "--force", id}, ts, js); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+
+	remaining, err := ts.List()
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(remaining) != 0 {
+		t.Errorf("expected 0 tasks after delete, got %d", len(remaining))
+	}
+}
+
+func TestIntegration_Delete_NotFound(t *testing.T) {
+	ts, js := newTestStores(t)
+	err := run(t, []string{"delete", "--force", "999"}, ts, js)
+	if err == nil {
+		t.Fatal("expected error for non-existent task, got nil")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("error = %q, want it to contain %q", err.Error(), "not found")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// status command
+// ---------------------------------------------------------------------------
+
+func TestIntegration_Status_SetExplicit(t *testing.T) {
+	ts, js := newTestStores(t)
+	run(t, []string{"add", "Work item"}, ts, js)
+	tasks, _ := ts.List()
+	id := strconv.FormatInt(tasks[0].ID, 10)
+
+	if err := run(t, []string{"status", id, "active"}, ts, js); err != nil {
+		t.Fatalf("status: %v", err)
+	}
+
+	got, _ := ts.GetByID(tasks[0].ID)
+	if got.Status != task.InProgress {
+		t.Errorf("Status = %v, want InProgress", got.Status)
+	}
+}
+
+func TestIntegration_Status_Cycle(t *testing.T) {
+	ts, js := newTestStores(t)
+	run(t, []string{"add", "Cycle me"}, ts, js)
+	tasks, _ := ts.List()
+	id := strconv.FormatInt(tasks[0].ID, 10)
+
+	// Pending → InProgress
+	run(t, []string{"status", id}, ts, js)
+	got, _ := ts.GetByID(tasks[0].ID)
+	if got.Status != task.InProgress {
+		t.Errorf("after 1st cycle: Status = %v, want InProgress", got.Status)
+	}
+
+	// InProgress → Done
+	run(t, []string{"status", id}, ts, js)
+	got, _ = ts.GetByID(tasks[0].ID)
+	if got.Status != task.Done {
+		t.Errorf("after 2nd cycle: Status = %v, want Done", got.Status)
+	}
+}
+
+func TestIntegration_Status_InvalidValue(t *testing.T) {
+	ts, js := newTestStores(t)
+	run(t, []string{"add", "Task"}, ts, js)
+	tasks, _ := ts.List()
+
+	err := run(t, []string{"status", strconv.FormatInt(tasks[0].ID, 10), "flying"}, ts, js)
+	if err == nil {
+		t.Fatal("expected error for invalid status, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// done command (extended)
+// ---------------------------------------------------------------------------
+
+func TestIntegration_Done_MultipleIDs(t *testing.T) {
+	ts, js := newTestStores(t)
+	run(t, []string{"add", "Task A"}, ts, js)
+	run(t, []string{"add", "Task B"}, ts, js)
+	tasks, _ := ts.List()
+
+	ids := make([]string, len(tasks))
+	for i, tk := range tasks {
+		ids[i] = strconv.FormatInt(tk.ID, 10)
+	}
+
+	args := append([]string{"done"}, ids...)
+	if err := run(t, args, ts, js); err != nil {
+		t.Fatalf("done multiple: %v", err)
+	}
+
+	remaining, _ := ts.List()
+	for _, tk := range remaining {
+		if tk.Status != task.Done {
+			t.Errorf("task #%d Status = %v, want Done", tk.ID, tk.Status)
+		}
+	}
+}
+
+func TestIntegration_Done_RecurringSpawnsNext(t *testing.T) {
+	ts, js := newTestStores(t)
+	run(t, []string{"add", "--recur", "daily", "Daily standup"}, ts, js)
+	tasks, _ := ts.List()
+	id := strconv.FormatInt(tasks[0].ID, 10)
+
+	if err := run(t, []string{"done", id}, ts, js); err != nil {
+		t.Fatalf("done recurring: %v", err)
+	}
+
+	all, _ := ts.List()
+	if len(all) != 2 {
+		t.Fatalf("expected 2 tasks after completing recurring (original + next), got %d", len(all))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// add command (extended)
+// ---------------------------------------------------------------------------
+
+func TestIntegration_Add_WithDesc(t *testing.T) {
+	ts, js := newTestStores(t)
+	if err := run(t, []string{"add", "--desc", "Some description", "Task with desc"}, ts, js); err != nil {
+		t.Fatalf("add: %v", err)
+	}
+	tasks, _ := ts.List()
+	if tasks[0].Description != "Some description" {
+		t.Errorf("Description = %q, want %q", tasks[0].Description, "Some description")
+	}
+}
+
+func TestIntegration_Add_WithRecur(t *testing.T) {
+	ts, js := newTestStores(t)
+	if err := run(t, []string{"add", "--recur", "weekly", "Weekly review"}, ts, js); err != nil {
+		t.Fatalf("add: %v", err)
+	}
+	tasks, _ := ts.List()
+	if tasks[0].RecurFreq != task.RecurWeekly {
+		t.Errorf("RecurFreq = %v, want RecurWeekly", tasks[0].RecurFreq)
+	}
+}
+
+func TestIntegration_Add_InvalidRecur(t *testing.T) {
+	ts, js := newTestStores(t)
+	err := run(t, []string{"add", "--recur", "hourly", "Bad recur"}, ts, js)
+	if err == nil {
+		t.Fatal("expected error for invalid recurrence, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// list command (extended filters)
+// ---------------------------------------------------------------------------
+
+func TestIntegration_List_FilterByPriority(t *testing.T) {
+	ts, js := newTestStores(t)
+	run(t, []string{"add", "--priority", "urgent", "Urgent task"}, ts, js)
+	run(t, []string{"add", "--priority", "low", "Low task"}, ts, js)
+
+	out := captureStdout(t, func() {
+		run(t, []string{"list", "--priority", "urgent"}, ts, js)
+	})
+
+	if !strings.Contains(out, "Urgent task") {
+		t.Errorf("output missing urgent task:\n%s", out)
+	}
+	if strings.Contains(out, "Low task") {
+		t.Errorf("output should not contain low priority task:\n%s", out)
+	}
+}
+
+func TestIntegration_List_FilterByTag(t *testing.T) {
+	ts, js := newTestStores(t)
+	run(t, []string{"add", "--tags", "work,golang", "Work task"}, ts, js)
+	run(t, []string{"add", "--tags", "personal", "Personal task"}, ts, js)
+
+	out := captureStdout(t, func() {
+		run(t, []string{"list", "--tag", "work"}, ts, js)
+	})
+
+	if !strings.Contains(out, "Work task") {
+		t.Errorf("output missing tagged task:\n%s", out)
+	}
+	if strings.Contains(out, "Personal task") {
+		t.Errorf("output should not contain untagged task:\n%s", out)
+	}
+}
+
+func TestIntegration_List_Search(t *testing.T) {
+	ts, js := newTestStores(t)
+	run(t, []string{"add", "Buy groceries"}, ts, js)
+	run(t, []string{"add", "Write tests"}, ts, js)
+
+	out := captureStdout(t, func() {
+		run(t, []string{"list", "--search", "groceries"}, ts, js)
+	})
+
+	if !strings.Contains(out, "Buy groceries") {
+		t.Errorf("output missing matched task:\n%s", out)
+	}
+	if strings.Contains(out, "Write tests") {
+		t.Errorf("output should not contain unmatched task:\n%s", out)
+	}
+}
+
+func TestIntegration_List_Limit(t *testing.T) {
+	ts, js := newTestStores(t)
+	for i := 0; i < 5; i++ {
+		run(t, []string{"add", "Task"}, ts, js)
+	}
+
+	out := captureStdout(t, func() {
+		run(t, []string{"list", "--limit", "2"}, ts, js)
+	})
+
+	// Count occurrences of "Task" in output (minus header line)
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	dataLines := 0
+	for _, line := range lines {
+		if strings.Contains(line, "Task") && !strings.Contains(line, "TITLE") {
+			dataLines++
+		}
+	}
+	if dataLines > 2 {
+		t.Errorf("expected at most 2 data rows, got %d:\n%s", dataLines, out)
+	}
+}
+
+func TestIntegration_List_SortByPriority(t *testing.T) {
+	ts, js := newTestStores(t)
+	run(t, []string{"add", "--priority", "low", "Low"}, ts, js)
+	run(t, []string{"add", "--priority", "urgent", "Urgent"}, ts, js)
+
+	out := captureStdout(t, func() {
+		run(t, []string{"list", "--sort", "priority"}, ts, js)
+	})
+
+	urgentIdx := strings.Index(out, "Urgent")
+	lowIdx := strings.Index(out, "Low")
+	if urgentIdx < 0 || lowIdx < 0 {
+		t.Fatalf("output missing expected tasks:\n%s", out)
+	}
+	if urgentIdx > lowIdx {
+		t.Errorf("expected Urgent before Low when sorted by priority:\n%s", out)
+	}
+}
+
+func TestIntegration_List_JSON_AllFields(t *testing.T) {
+	ts, js := newTestStores(t)
+	run(t, []string{"add", "--desc", "desc", "--tags", "a,b", "Full task"}, ts, js)
+
+	out := captureStdout(t, func() {
+		run(t, []string{"list", "--format", "json"}, ts, js)
+	})
+
+	var result []map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("invalid JSON: %v\noutput: %s", err, out)
+	}
+	if len(result) != 1 {
+		t.Fatalf("expected 1 task in JSON output, got %d", len(result))
+	}
+	for _, field := range []string{"description", "subtasks", "time_logs", "blocked_by", "created_at", "updated_at"} {
+		if _, ok := result[0][field]; !ok {
+			t.Errorf("JSON output missing field %q", field)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
 // dispatch (Run)
 // ---------------------------------------------------------------------------
 
 func TestIntegration_Run_Dispatch(t *testing.T) {
 	ts, js := newTestStores(t)
 
-	if err := Run([]string{"add", "My task"}, ts, js); err != nil {
+	if err := Run([]string{"add", "My task"}, ts, js, nil, config.Config{}); err != nil {
 		t.Fatalf("Run add: %v", err)
 	}
 
