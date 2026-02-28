@@ -45,6 +45,15 @@ modernc.org/sqlite v1.46.1
 - **Smart Date Labels**: "Today", "Yesterday", weekday names, or full dates
 - **Search Notes**: Filter notes by date
 
+### Pomodoro Timer
+- **Full Pomodoro cycle**: Work → Short Break → Work → ... → Long Break (4-session sets)
+- **Session types**: Work (🍅), Short Break (☕), Long Break (🌿) with distinct colors
+- **Cycle indicator**: ●●●○ showing progress through 4-session set
+- **Configurable**: Durations, daily goal, auto-start breaks via `P` settings form or config.json
+- **Notifications**: Terminal bell on phase completion
+- **Stats**: Daily goal progress, weekly summary, streak tracking in `G` overlay
+- **Task linkage**: Focus sessions linked to selected task
+
 ### General
 - Keyboard-driven navigation (vim-style j/k + arrows)
 - Two-panel layout with focus switching (1/2 keys)

@@ -234,7 +234,7 @@ func (m *Model) updateConfirmDeleteSubtask(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 func (m *Model) updateFocusConfirmCancel(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "y", "Y":
-		m.focusActive = false
+		m.focusPhase = phaseIdle
 		m.focusSession = nil
 		m.mode = modeNormal
 		return m, m.setStatus("Focus session cancelled")

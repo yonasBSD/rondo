@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -41,6 +42,9 @@ const (
 	modeTagFilter
 	modeStats
 	modeBlockerPicker
+	modeFocusSessionEnd // work done overlay
+	modeFocusBreakEnd   // break done overlay
+	modeFocusSettings   // P key settings form
 )
 
 const tabCount = 4
@@ -51,6 +55,16 @@ const (
 	sortCreated sortOrder = iota
 	sortDue
 	sortPriority
+)
+
+type focusPhase int
+
+const (
+	phaseIdle      focusPhase = iota
+	phaseWork
+	phaseBreak
+	phaseWorkDone
+	phaseBreakDone
 )
 
 // undoAction stores a reversible action.
@@ -71,6 +85,11 @@ type statsData struct {
 	tagCounts     map[string]int
 	focusToday    int
 	journalStreak string
+	// Focus detail fields.
+	focusGoal      int
+	focusStreak    int
+	focusWeekly    map[string]int
+	focusTotalMins int
 }
 
 // Model is the top-level Bubbletea model for the todo application.
@@ -102,10 +121,14 @@ type Model struct {
 	// Time log.
 	timeLogFormData *ui.TimeLogFormData
 
+	// Focus settings form.
+	focusSettingsFormData *ui.FocusSettingsData
+
 	// Focus timer.
-	focusStore   *focus.Store
-	focusSession *focus.Session
-	focusActive  bool
+	focusStore    *focus.Store
+	focusSession  *focus.Session
+	focusPhase    focusPhase
+	focusCyclePos int
 
 	// Tag filter.
 	activeTag     string
@@ -141,6 +164,10 @@ type focusTickMsg time.Time
 type exportDoneMsg struct {
 	path string
 	err  error
+}
+
+func (m *Model) isFocusActive() bool {
+	return m.focusPhase == phaseWork || m.focusPhase == phaseBreak
 }
 
 func (m *Model) setStatus(msg string) tea.Cmd {
@@ -181,6 +208,11 @@ func New(store *task.Store, journalStore *journal.Store, focusStore *focus.Store
 	jvp := viewport.New(0, 0)
 	h := help.New()
 
+	focusCyclePos := 0
+	if wc, err := focusStore.TodayWorkCount(); err == nil && cfg.Focus.LongBreakInterval > 0 {
+		focusCyclePos = wc % cfg.Focus.LongBreakInterval
+	}
+
 	return Model{
 		store:        store,
 		journalStore: journalStore,
@@ -193,6 +225,7 @@ func New(store *task.Store, journalStore *journal.Store, focusStore *focus.Store
 		journalViewport: jvp,
 		help:         h,
 		activeTab:    1, // Default to Active tab
+		focusCyclePos: focusCyclePos,
 	}
 }
 
@@ -225,6 +258,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.mode == modeTimeLog {
 		return m.updateTimeLogForm(msg)
 	}
+	if m.mode == modeFocusSettings {
+		return m.updateFocusSettingsForm(msg)
+	}
 
 	switch msg := msg.(type) {
 	case tasksLoaded:
@@ -252,19 +288,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case focusTickMsg:
-		if !m.focusActive || m.focusSession == nil {
+		if !m.isFocusActive() || m.focusSession == nil {
 			return m, nil
 		}
 		now := time.Now()
 		remaining := m.focusSession.Remaining(now)
 		if remaining <= 0 {
-			// Session complete.
 			if err := m.focusStore.Complete(m.focusSession.ID); err != nil {
 				return m, m.setError(err)
 			}
-			m.focusActive = false
-			m.focusSession = nil
-			return m, m.setStatus("Focus session complete!")
+			return m.handlePhaseComplete()
 		}
 		return m, focusTick()
 
@@ -294,6 +327,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.mode == modeJournalConfirmDelete {
 			return m.updateJournalConfirmDelete(msg)
+		}
+		if m.mode == modeFocusSessionEnd {
+			return m.updateFocusSessionEnd(msg)
+		}
+		if m.mode == modeFocusBreakEnd {
+			return m.updateFocusBreakEnd(msg)
 		}
 		if m.mode == modeFocusConfirmCancel {
 			return m.updateFocusConfirmCancel(msg)
@@ -338,6 +377,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.form.Init()
 		case key.Matches(msg, keys.Focus):
 			return m.handleFocusToggle()
+		case key.Matches(msg, keys.FocusSettings):
+			m.focusSettingsFormData = &ui.FocusSettingsData{
+				WorkDuration:       strconv.Itoa(m.cfg.Focus.WorkDuration),
+				ShortBreakDuration: strconv.Itoa(m.cfg.Focus.ShortBreakDuration),
+				LongBreakDuration:  strconv.Itoa(m.cfg.Focus.LongBreakDuration),
+				SessionsPerSet:     strconv.Itoa(m.cfg.Focus.LongBreakInterval),
+				DailyGoal:          strconv.Itoa(m.cfg.Focus.DailyGoal),
+				AutoStartBreaks:    m.cfg.Focus.AutoStartBreak,
+				Sound:              m.cfg.Focus.Sound,
+			}
+			m.form = ui.FocusSettingsForm(m.focusSettingsFormData)
+			m.mode = modeFocusSettings
+			return m, m.form.Init()
 		case key.Matches(msg, keys.Stats):
 			m.computeStats()
 			m.mode = modeStats
@@ -763,6 +815,16 @@ func (m Model) View() string {
 				lipgloss.WithWhitespaceForeground(ui.OverlayDim))
 		}
 
+	case modeFocusSettings:
+		if m.form != nil {
+			formView := m.form.View()
+			dialogContent := lipgloss.NewStyle().Bold(true).Foreground(ui.White).Render("Focus Settings") + "\n\n" + formView
+			dialog := dialogStyle().Render(dialogContent)
+			view = lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, dialog,
+				lipgloss.WithWhitespaceChars(" "),
+				lipgloss.WithWhitespaceForeground(ui.OverlayDim))
+		}
+
 	case modeConfirmDelete:
 		selected := m.selectedTask()
 		title := ""
@@ -792,6 +854,18 @@ func (m Model) View() string {
 		}
 		dialog := ui.RenderConfirmDialogBox("Cancel Focus?", fmt.Sprintf("Cancel session with %s remaining?", remaining), ui.Yellow)
 		view = lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, dialog,
+			lipgloss.WithWhitespaceChars(" "),
+			lipgloss.WithWhitespaceForeground(ui.OverlayDim))
+
+	case modeFocusSessionEnd:
+		overlay := m.renderFocusSessionEndOverlay()
+		view = lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, overlay,
+			lipgloss.WithWhitespaceChars(" "),
+			lipgloss.WithWhitespaceForeground(ui.OverlayDim))
+
+	case modeFocusBreakEnd:
+		overlay := m.renderFocusBreakEndOverlay()
+		view = lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, overlay,
 			lipgloss.WithWhitespaceChars(" "),
 			lipgloss.WithWhitespaceForeground(ui.OverlayDim))
 

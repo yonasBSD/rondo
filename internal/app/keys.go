@@ -28,6 +28,7 @@ type keyMap struct {
 	Undo          key.Binding
 	Stats         key.Binding
 	Blocker       key.Binding
+	FocusSettings key.Binding
 }
 
 var keys = keyMap{
@@ -129,6 +130,10 @@ var keys = keyMap{
 		key.WithKeys("b"),
 		key.WithHelp("b", "blockers"),
 	),
+	FocusSettings: key.NewBinding(
+		key.WithKeys("P"),
+		key.WithHelp("P", "focus settings"),
+	),
 }
 
 func (k keyMap) ShortHelp() []key.Binding {
@@ -142,7 +147,7 @@ func (k keyMap) FullHelp() [][]key.Binding {
 		{k.Search, k.Tab, k.Help},
 		{k.SortDate, k.SortDue, k.SortPrio},
 		{k.Hide, k.ShowHidden},
-		{k.Export, k.Focus, k.Stats},
+		{k.Export, k.Focus, k.FocusSettings, k.Stats},
 		{k.PanelWider, k.PanelNarrower, k.Undo},
 		{k.Quit},
 	}

@@ -70,8 +70,12 @@ mv rondo /usr/local/bin/
 
 ### Productivity Tools
 
-- **Focus timer** — 25-minute Pomodoro sessions with live countdown (`p`)
-- **Statistics overlay** — task counts, priority breakdown, tag cloud, focus sessions, journal streak (`G`)
+- **Pomodoro timer** — full work/break cycles with configurable durations (`p`)
+  - Work → Short Break → Work → ... → Long Break (4-session sets)
+  - Phase-aware timer: 🍅 work, ☕ short break, 🌿 long break
+  - Cycle indicator (●●●○), terminal bell on completion
+  - Configurable via settings form (`P`) or `config.json`
+- **Statistics overlay** — task counts, priority breakdown, tag cloud, focus sessions, daily goal, streaks (`G`)
 - **Export** — Markdown or JSON, with optional journal inclusion (`X`)
 - **Undo** — revert the last destructive action (`Ctrl+Z`)
 
@@ -119,7 +123,8 @@ rondo export                       # Export data
 | `<` / `>` | Resize panels |
 | `Esc` | Return to list / clear filter |
 | `?` | Help overlay |
-| `p` | Focus timer (start / cancel) |
+| `p` | Pomodoro timer (start / stop / break) |
+| `P` | Pomodoro settings |
 | `X` | Export |
 | `G` | Statistics |
 | `Ctrl+Z` | Undo last action |

@@ -130,6 +130,126 @@ func TestSave_CreatesDirectory(t *testing.T) {
 	}
 }
 
+func TestFocusConfig_Defaults(t *testing.T) {
+	tests := []struct {
+		name  string
+		input FocusConfig
+		want  FocusConfig
+	}{
+		{
+			name:  "all zero values get defaults",
+			input: FocusConfig{},
+			want: FocusConfig{
+				WorkDuration:       25,
+				ShortBreakDuration: 5,
+				LongBreakDuration:  15,
+				LongBreakInterval:  4,
+				DailyGoal:          8,
+			},
+		},
+		{
+			name:  "non-zero values preserved",
+			input: FocusConfig{WorkDuration: 30, ShortBreakDuration: 10, LongBreakDuration: 20, LongBreakInterval: 3, DailyGoal: 12},
+			want:  FocusConfig{WorkDuration: 30, ShortBreakDuration: 10, LongBreakDuration: 20, LongBreakInterval: 3, DailyGoal: 12},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := Config{Focus: tt.input}
+			cfg.validate()
+			if cfg.Focus.WorkDuration != tt.want.WorkDuration {
+				t.Errorf("WorkDuration = %d, want %d", cfg.Focus.WorkDuration, tt.want.WorkDuration)
+			}
+			if cfg.Focus.ShortBreakDuration != tt.want.ShortBreakDuration {
+				t.Errorf("ShortBreakDuration = %d, want %d", cfg.Focus.ShortBreakDuration, tt.want.ShortBreakDuration)
+			}
+			if cfg.Focus.LongBreakDuration != tt.want.LongBreakDuration {
+				t.Errorf("LongBreakDuration = %d, want %d", cfg.Focus.LongBreakDuration, tt.want.LongBreakDuration)
+			}
+			if cfg.Focus.LongBreakInterval != tt.want.LongBreakInterval {
+				t.Errorf("LongBreakInterval = %d, want %d", cfg.Focus.LongBreakInterval, tt.want.LongBreakInterval)
+			}
+			if cfg.Focus.DailyGoal != tt.want.DailyGoal {
+				t.Errorf("DailyGoal = %d, want %d", cfg.Focus.DailyGoal, tt.want.DailyGoal)
+			}
+		})
+	}
+}
+
+func TestFocusConfig_Clamp(t *testing.T) {
+	tests := []struct {
+		name  string
+		input FocusConfig
+		want  FocusConfig
+	}{
+		{
+			name:  "work duration below min clamped to 1",
+			input: FocusConfig{WorkDuration: -5, ShortBreakDuration: 5, LongBreakDuration: 15, LongBreakInterval: 4, DailyGoal: 8},
+			want:  FocusConfig{WorkDuration: 1, ShortBreakDuration: 5, LongBreakDuration: 15, LongBreakInterval: 4, DailyGoal: 8},
+		},
+		{
+			name:  "work duration above max clamped to 120",
+			input: FocusConfig{WorkDuration: 200, ShortBreakDuration: 5, LongBreakDuration: 15, LongBreakInterval: 4, DailyGoal: 8},
+			want:  FocusConfig{WorkDuration: 120, ShortBreakDuration: 5, LongBreakDuration: 15, LongBreakInterval: 4, DailyGoal: 8},
+		},
+		{
+			name:  "long break interval above max clamped to 10",
+			input: FocusConfig{WorkDuration: 25, ShortBreakDuration: 5, LongBreakDuration: 15, LongBreakInterval: 15, DailyGoal: 8},
+			want:  FocusConfig{WorkDuration: 25, ShortBreakDuration: 5, LongBreakDuration: 15, LongBreakInterval: 10, DailyGoal: 8},
+		},
+		{
+			name:  "short break below min clamped to 1",
+			input: FocusConfig{WorkDuration: 25, ShortBreakDuration: -1, LongBreakDuration: 15, LongBreakInterval: 4, DailyGoal: 8},
+			want:  FocusConfig{WorkDuration: 25, ShortBreakDuration: 1, LongBreakDuration: 15, LongBreakInterval: 4, DailyGoal: 8},
+		},
+		{
+			name:  "long break below min clamped to 1",
+			input: FocusConfig{WorkDuration: 25, ShortBreakDuration: 5, LongBreakDuration: -3, LongBreakInterval: 4, DailyGoal: 8},
+			want:  FocusConfig{WorkDuration: 25, ShortBreakDuration: 5, LongBreakDuration: 1, LongBreakInterval: 4, DailyGoal: 8},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := Config{Focus: tt.input}
+			cfg.validate()
+			if cfg.Focus.WorkDuration != tt.want.WorkDuration {
+				t.Errorf("WorkDuration = %d, want %d", cfg.Focus.WorkDuration, tt.want.WorkDuration)
+			}
+			if cfg.Focus.ShortBreakDuration != tt.want.ShortBreakDuration {
+				t.Errorf("ShortBreakDuration = %d, want %d", cfg.Focus.ShortBreakDuration, tt.want.ShortBreakDuration)
+			}
+			if cfg.Focus.LongBreakDuration != tt.want.LongBreakDuration {
+				t.Errorf("LongBreakDuration = %d, want %d", cfg.Focus.LongBreakDuration, tt.want.LongBreakDuration)
+			}
+			if cfg.Focus.LongBreakInterval != tt.want.LongBreakInterval {
+				t.Errorf("LongBreakInterval = %d, want %d", cfg.Focus.LongBreakInterval, tt.want.LongBreakInterval)
+			}
+		})
+	}
+}
+
+func TestDefaultConfig_FocusDefaults(t *testing.T) {
+	cfg := DefaultConfig()
+	if cfg.Focus.WorkDuration != 25 {
+		t.Errorf("WorkDuration = %d, want 25", cfg.Focus.WorkDuration)
+	}
+	if cfg.Focus.ShortBreakDuration != 5 {
+		t.Errorf("ShortBreakDuration = %d, want 5", cfg.Focus.ShortBreakDuration)
+	}
+	if cfg.Focus.LongBreakDuration != 15 {
+		t.Errorf("LongBreakDuration = %d, want 15", cfg.Focus.LongBreakDuration)
+	}
+	if cfg.Focus.LongBreakInterval != 4 {
+		t.Errorf("LongBreakInterval = %d, want 4", cfg.Focus.LongBreakInterval)
+	}
+	if cfg.Focus.DailyGoal != 8 {
+		t.Errorf("DailyGoal = %d, want 8", cfg.Focus.DailyGoal)
+	}
+	if !cfg.Focus.Sound {
+		t.Error("Sound = false, want true")
+	}
+}
+
 func TestRoundtrip_JSON(t *testing.T) {
 	original := Config{PanelRatio: 0.55}
 

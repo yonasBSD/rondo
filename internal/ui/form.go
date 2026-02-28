@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -232,4 +233,66 @@ func validateDuration(s string) error {
 		return fmt.Errorf("use format like 1h30m, 45m, 2h")
 	}
 	return nil
+}
+
+func validatePositiveInt(s string) error {
+	v, err := strconv.Atoi(s)
+	if err != nil {
+		return fmt.Errorf("enter a whole number")
+	}
+	if v <= 0 {
+		return fmt.Errorf("must be greater than 0")
+	}
+	return nil
+}
+
+// FocusSettingsData holds form field values for focus timer settings.
+type FocusSettingsData struct {
+	WorkDuration       string
+	ShortBreakDuration string
+	LongBreakDuration  string
+	SessionsPerSet     string
+	DailyGoal          string
+	AutoStartBreaks    bool
+	Sound              bool
+}
+
+// FocusSettingsForm creates a Huh form for configuring the focus timer.
+func FocusSettingsForm(data *FocusSettingsData) *huh.Form {
+	return huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Work Duration (min)").
+				Value(&data.WorkDuration).
+				Validate(validatePositiveInt),
+
+			huh.NewInput().
+				Title("Short Break (min)").
+				Value(&data.ShortBreakDuration).
+				Validate(validatePositiveInt),
+
+			huh.NewInput().
+				Title("Long Break (min)").
+				Value(&data.LongBreakDuration).
+				Validate(validatePositiveInt),
+
+			huh.NewInput().
+				Title("Sessions Per Set").
+				Value(&data.SessionsPerSet).
+				Validate(validatePositiveInt),
+
+			huh.NewInput().
+				Title("Daily Goal").
+				Value(&data.DailyGoal).
+				Validate(validatePositiveInt),
+
+			huh.NewConfirm().
+				Title("Auto-start Breaks?").
+				Value(&data.AutoStartBreaks),
+
+			huh.NewConfirm().
+				Title("Sound?").
+				Value(&data.Sound),
+		),
+	).WithTheme(FormTheme()).WithShowHelp(true)
 }

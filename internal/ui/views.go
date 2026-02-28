@@ -4,6 +4,7 @@ package ui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 
@@ -263,7 +264,7 @@ func RenderStatusBar(total, done, active int, width int, statusMsg string, focus
 
 		// Focus timer.
 		if timerStr != "" {
-			left += "  " + lipgloss.NewStyle().Foreground(Red).Bold(true).Render(timerStr)
+			left += "  " + lipgloss.NewStyle().Foreground(timerColor(timerStr)).Bold(true).Render(timerStr)
 		}
 
 		var panelLabel string
@@ -428,4 +429,41 @@ func prioStyle(p task.Priority) lipgloss.Style {
 	default:
 		return lipgloss.NewStyle().Foreground(Green)
 	}
+}
+
+// timerColor returns the display color for a focus timer string based on its emoji prefix.
+func timerColor(timerStr string) lipgloss.Color {
+	if strings.ContainsRune(timerStr, '🍅') {
+		return Orange
+	}
+	if strings.ContainsRune(timerStr, '🌿') {
+		return Cyan
+	}
+	if strings.ContainsRune(timerStr, '☕') {
+		return Green
+	}
+	return Red
+}
+
+// RenderFocusProgressBar renders a horizontal progress bar for the focus timer.
+// It shows elapsed/total as filled blocks with the given color.
+func RenderFocusProgressBar(elapsed, total time.Duration, width int, color lipgloss.Color) string {
+	if total <= 0 || width < 4 {
+		return ""
+	}
+	barWidth := width - 2
+	if barWidth > 40 {
+		barWidth = 40
+	}
+	filled := 0
+	if total > 0 {
+		filled = int(int64(barWidth) * int64(elapsed) / int64(total))
+	}
+	if filled > barWidth {
+		filled = barWidth
+	}
+	empty := barWidth - filled
+	bar := lipgloss.NewStyle().Foreground(color).Render(strings.Repeat("█", filled))
+	bar += lipgloss.NewStyle().Foreground(DimGray).Render(strings.Repeat("░", empty))
+	return "  " + bar
 }

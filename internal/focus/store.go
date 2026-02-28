@@ -36,7 +36,41 @@ func migrate(db *sql.DB) error {
 			return fmt.Errorf("focus migrate: %w", err)
 		}
 	}
+	if err := addColumnIfNotExists(db, "focus_sessions", "kind", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+		return fmt.Errorf("focus migrate kind: %w", err)
+	}
+	if err := addColumnIfNotExists(db, "focus_sessions", "cycle_pos", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+		return fmt.Errorf("focus migrate cycle_pos: %w", err)
+	}
 	return nil
+}
+
+func addColumnIfNotExists(db *sql.DB, table, column, colDef string) error {
+	rows, err := db.Query(fmt.Sprintf("PRAGMA table_info(%s)", table))
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cid int
+		var name, ctype string
+		var notnull int
+		var dflt sql.NullString
+		var pk int
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			return err
+		}
+		if name == column {
+			return nil // column already exists
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	_, err = db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, column, colDef))
+	return err
 }
 
 // Create inserts a new session and sets its ID.
@@ -47,11 +81,13 @@ func (s *Store) Create(session *Session) error {
 		completedAt = &v
 	}
 	res, err := s.db.Exec(
-		`INSERT INTO focus_sessions (task_id, duration, started_at, completed_at) VALUES (?,?,?,?)`,
+		`INSERT INTO focus_sessions (task_id, duration, started_at, completed_at, kind, cycle_pos) VALUES (?,?,?,?,?,?)`,
 		session.TaskID,
 		int64(session.Duration),
 		session.StartedAt.UTC().Format(time.RFC3339),
 		completedAt,
+		int(session.Kind),
+		session.CyclePos,
 	)
 	if err != nil {
 		return fmt.Errorf("create focus session: %w", err)
@@ -84,7 +120,7 @@ func (s *Store) Complete(id int64) error {
 // ListByTask returns sessions for a given task, ordered by started_at DESC.
 func (s *Store) ListByTask(taskID int64) ([]Session, error) {
 	rows, err := s.db.Query(
-		`SELECT id, task_id, duration, started_at, completed_at FROM focus_sessions WHERE task_id = ? ORDER BY started_at DESC`,
+		`SELECT id, task_id, duration, started_at, completed_at, kind, cycle_pos FROM focus_sessions WHERE task_id = ? ORDER BY started_at DESC`,
 		taskID,
 	)
 	if err != nil {
@@ -144,6 +180,106 @@ func (s *Store) TodayCount() (int, error) {
 	return count, nil
 }
 
+// TodayWorkCount returns the number of completed work sessions today.
+func (s *Store) TodayWorkCount() (int, error) {
+	today := time.Now().UTC().Format(time.DateOnly)
+	var count int
+	err := s.db.QueryRow(
+		`SELECT COUNT(*) FROM focus_sessions WHERE completed_at IS NOT NULL AND kind = 0 AND DATE(completed_at) = ?`,
+		today,
+	).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("today work count: %w", err)
+	}
+	return count, nil
+}
+
+// WeeklySummary returns the count of completed work sessions per day for the
+// last 7 days, keyed by "YYYY-MM-DD".
+func (s *Store) WeeklySummary() (map[string]int, error) {
+	cutoff := time.Now().UTC().AddDate(0, 0, -7).Format(time.RFC3339)
+	rows, err := s.db.Query(
+		`SELECT DATE(completed_at) AS day, COUNT(*) FROM focus_sessions
+		 WHERE completed_at IS NOT NULL AND kind = 0 AND completed_at >= ?
+		 GROUP BY day`,
+		cutoff,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("weekly summary: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string]int)
+	for rows.Next() {
+		var day string
+		var count int
+		if err := rows.Scan(&day, &count); err != nil {
+			return nil, err
+		}
+		result[day] = count
+	}
+	return result, rows.Err()
+}
+
+// Streak returns the number of consecutive days (walking back from today)
+// that have at least one completed work session.
+func (s *Store) Streak() (int, error) {
+	rows, err := s.db.Query(
+		`SELECT DISTINCT DATE(completed_at) AS day FROM focus_sessions
+		 WHERE completed_at IS NOT NULL AND kind = 0
+		 ORDER BY day DESC`,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("streak: %w", err)
+	}
+	defer rows.Close()
+
+	var days []string
+	for rows.Next() {
+		var day string
+		if err := rows.Scan(&day); err != nil {
+			return 0, err
+		}
+		days = append(days, day)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+
+	if len(days) == 0 {
+		return 0, nil
+	}
+
+	streak := 0
+	expected := time.Now().UTC().Format(time.DateOnly)
+	for _, day := range days {
+		if day == expected {
+			streak++
+			t, _ := time.Parse(time.DateOnly, expected)
+			expected = t.AddDate(0, 0, -1).Format(time.DateOnly)
+		} else {
+			break
+		}
+	}
+	return streak, nil
+}
+
+// TotalMinutesFocused returns the total minutes spent in completed work
+// sessions over the last N days.
+func (s *Store) TotalMinutesFocused(days int) (int, error) {
+	cutoff := time.Now().UTC().AddDate(0, 0, -days).Format(time.RFC3339)
+	var totalNs int64
+	err := s.db.QueryRow(
+		`SELECT COALESCE(SUM(duration), 0) FROM focus_sessions
+		 WHERE completed_at IS NOT NULL AND kind = 0 AND completed_at >= ?`,
+		cutoff,
+	).Scan(&totalNs)
+	if err != nil {
+		return 0, fmt.Errorf("total minutes focused: %w", err)
+	}
+	return int(time.Duration(totalNs).Minutes()), nil
+}
+
 // scanner is satisfied by both *sql.Row and *sql.Rows.
 type scanner interface {
 	Scan(dest ...any) error
@@ -154,12 +290,14 @@ func scanSession(s scanner) (Session, error) {
 	var durationNs int64
 	var startedAt string
 	var completedAt sql.NullString
+	var kind int
 
-	if err := s.Scan(&sess.ID, &sess.TaskID, &durationNs, &startedAt, &completedAt); err != nil {
+	if err := s.Scan(&sess.ID, &sess.TaskID, &durationNs, &startedAt, &completedAt, &kind, &sess.CyclePos); err != nil {
 		return Session{}, err
 	}
 
 	sess.Duration = time.Duration(durationNs)
+	sess.Kind = SessionKind(kind)
 
 	t, err := time.Parse(time.RFC3339, startedAt)
 	if err != nil {

@@ -254,6 +254,194 @@ func TestCompletionsByDay(t *testing.T) {
 	}
 }
 
+func TestTodayWorkCount(t *testing.T) {
+	db := openTestDB(t)
+	store, err := NewStore(db)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+
+	count, err := store.TodayWorkCount()
+	if err != nil {
+		t.Fatalf("TodayWorkCount: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("expected 0, got %d", count)
+	}
+
+	now := time.Now().Truncate(time.Second)
+
+	// Create and complete a work session today.
+	work := &Session{Duration: DefaultDuration, StartedAt: now.Add(-30 * time.Minute), Kind: KindWork}
+	if err := store.Create(work); err != nil {
+		t.Fatalf("Create work: %v", err)
+	}
+	if err := store.Complete(work.ID); err != nil {
+		t.Fatalf("Complete work: %v", err)
+	}
+
+	// Create and complete a short break session today (should not count).
+	brk := &Session{Duration: 5 * time.Minute, StartedAt: now.Add(-25 * time.Minute), Kind: KindShortBreak}
+	if err := store.Create(brk); err != nil {
+		t.Fatalf("Create break: %v", err)
+	}
+	if err := store.Complete(brk.ID); err != nil {
+		t.Fatalf("Complete break: %v", err)
+	}
+
+	// Create an incomplete work session (should not count).
+	incomplete := &Session{Duration: DefaultDuration, StartedAt: now, Kind: KindWork}
+	if err := store.Create(incomplete); err != nil {
+		t.Fatalf("Create incomplete: %v", err)
+	}
+
+	count, err = store.TodayWorkCount()
+	if err != nil {
+		t.Fatalf("TodayWorkCount: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("expected 1, got %d", count)
+	}
+}
+
+func TestWeeklySummary(t *testing.T) {
+	db := openTestDB(t)
+	store, err := NewStore(db)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+
+	now := time.Now().Truncate(time.Second)
+
+	// Create 2 completed work sessions today.
+	for i := 0; i < 2; i++ {
+		sess := &Session{
+			Duration:  DefaultDuration,
+			StartedAt: now.Add(time.Duration(-i) * time.Hour),
+			Kind:      KindWork,
+		}
+		if err := store.Create(sess); err != nil {
+			t.Fatalf("Create #%d: %v", i, err)
+		}
+		if err := store.Complete(sess.ID); err != nil {
+			t.Fatalf("Complete #%d: %v", i, err)
+		}
+	}
+
+	// Create a completed break session (should not appear in weekly summary).
+	brk := &Session{Duration: 5 * time.Minute, StartedAt: now, Kind: KindShortBreak}
+	if err := store.Create(brk); err != nil {
+		t.Fatalf("Create break: %v", err)
+	}
+	if err := store.Complete(brk.ID); err != nil {
+		t.Fatalf("Complete break: %v", err)
+	}
+
+	result, err := store.WeeklySummary()
+	if err != nil {
+		t.Fatalf("WeeklySummary: %v", err)
+	}
+
+	today := now.UTC().Format(time.DateOnly)
+	if result[today] != 2 {
+		t.Errorf("expected 2 work sessions today, got %d", result[today])
+	}
+	// Break sessions must not appear.
+	total := 0
+	for _, v := range result {
+		total += v
+	}
+	if total != 2 {
+		t.Errorf("expected total 2 across all days, got %d", total)
+	}
+}
+
+func TestStreak(t *testing.T) {
+	db := openTestDB(t)
+	store, err := NewStore(db)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+
+	// No sessions → streak = 0.
+	streak, err := store.Streak()
+	if err != nil {
+		t.Fatalf("Streak: %v", err)
+	}
+	if streak != 0 {
+		t.Errorf("expected streak 0, got %d", streak)
+	}
+
+	now := time.Now().Truncate(time.Second)
+
+	// Add a completed work session today.
+	today := &Session{Duration: DefaultDuration, StartedAt: now.Add(-30 * time.Minute), Kind: KindWork}
+	if err := store.Create(today); err != nil {
+		t.Fatalf("Create today: %v", err)
+	}
+	if err := store.Complete(today.ID); err != nil {
+		t.Fatalf("Complete today: %v", err)
+	}
+
+	streak, err = store.Streak()
+	if err != nil {
+		t.Fatalf("Streak: %v", err)
+	}
+	if streak != 1 {
+		t.Errorf("expected streak 1, got %d", streak)
+	}
+}
+
+func TestTotalMinutesFocused(t *testing.T) {
+	db := openTestDB(t)
+	store, err := NewStore(db)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+
+	mins, err := store.TotalMinutesFocused(7)
+	if err != nil {
+		t.Fatalf("TotalMinutesFocused: %v", err)
+	}
+	if mins != 0 {
+		t.Errorf("expected 0, got %d", mins)
+	}
+
+	now := time.Now().Truncate(time.Second)
+
+	// Create and complete two 25-min work sessions.
+	for i := 0; i < 2; i++ {
+		sess := &Session{
+			Duration:  25 * time.Minute,
+			StartedAt: now.Add(time.Duration(-i) * time.Hour),
+			Kind:      KindWork,
+		}
+		if err := store.Create(sess); err != nil {
+			t.Fatalf("Create #%d: %v", i, err)
+		}
+		if err := store.Complete(sess.ID); err != nil {
+			t.Fatalf("Complete #%d: %v", i, err)
+		}
+	}
+
+	// A completed break session should not count.
+	brk := &Session{Duration: 5 * time.Minute, StartedAt: now, Kind: KindShortBreak}
+	if err := store.Create(brk); err != nil {
+		t.Fatalf("Create break: %v", err)
+	}
+	if err := store.Complete(brk.ID); err != nil {
+		t.Fatalf("Complete break: %v", err)
+	}
+
+	mins, err = store.TotalMinutesFocused(7)
+	if err != nil {
+		t.Fatalf("TotalMinutesFocused: %v", err)
+	}
+	if mins != 50 {
+		t.Errorf("expected 50 minutes, got %d", mins)
+	}
+}
+
 func TestCreateWithZeroTaskID(t *testing.T) {
 	db := openTestDB(t)
 	store, err := NewStore(db)

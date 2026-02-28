@@ -8,13 +8,52 @@ import (
 // DefaultDuration is the standard focus session length (Pomodoro).
 const DefaultDuration = 25 * time.Minute
 
+// SessionKind distinguishes work sessions from break sessions.
+type SessionKind int
+
+const (
+	KindWork       SessionKind = 0
+	KindShortBreak SessionKind = 1
+	KindLongBreak  SessionKind = 2
+)
+
+// String returns the full name of the session kind.
+func (k SessionKind) String() string {
+	switch k {
+	case KindWork:
+		return "Work"
+	case KindShortBreak:
+		return "Short Break"
+	case KindLongBreak:
+		return "Long Break"
+	default:
+		return "Unknown"
+	}
+}
+
+// Label returns a shorter display label for the session kind.
+func (k SessionKind) Label() string {
+	switch k {
+	case KindWork:
+		return "Focus"
+	case KindShortBreak:
+		return "Break"
+	case KindLongBreak:
+		return "Long Break"
+	default:
+		return "Unknown"
+	}
+}
+
 // Session represents a single focus/pomodoro session.
 type Session struct {
 	ID          int64
-	TaskID      int64          // 0 if no associated task
-	Duration    time.Duration  // planned duration
+	TaskID      int64         // 0 if no associated task
+	Duration    time.Duration // planned duration
 	StartedAt   time.Time
-	CompletedAt *time.Time     // nil if abandoned or in-progress
+	CompletedAt *time.Time  // nil if abandoned or in-progress
+	Kind        SessionKind
+	CyclePos    int // 1-4 for work sessions, 0 for breaks
 }
 
 // IsCompleted reports whether the session was completed.

@@ -75,6 +75,46 @@ func TestRemaining(t *testing.T) {
 	}
 }
 
+func TestSessionKindString(t *testing.T) {
+	tests := []struct {
+		kind SessionKind
+		want string
+	}{
+		{KindWork, "Work"},
+		{KindShortBreak, "Short Break"},
+		{KindLongBreak, "Long Break"},
+		{SessionKind(99), "Unknown"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.want, func(t *testing.T) {
+			got := tt.kind.String()
+			if got != tt.want {
+				t.Errorf("SessionKind(%d).String() = %q, want %q", tt.kind, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSessionKindLabel(t *testing.T) {
+	tests := []struct {
+		kind SessionKind
+		want string
+	}{
+		{KindWork, "Focus"},
+		{KindShortBreak, "Break"},
+		{KindLongBreak, "Long Break"},
+		{SessionKind(99), "Unknown"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.want, func(t *testing.T) {
+			got := tt.kind.Label()
+			if got != tt.want {
+				t.Errorf("SessionKind(%d).Label() = %q, want %q", tt.kind, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestFormatTimer(t *testing.T) {
 	tests := []struct {
 		name string
