@@ -287,10 +287,20 @@ rondo completion zsh
 Date/time display is configurable via `rondo config` (Go time layouts):
 
 ```bash
+rondo config set date_format european
+rondo config set time_format 24h
+rondo config set datetime_format iso
+
+# Or use custom Go layouts
 rondo config set date_format "02.01.2006"
 rondo config set time_format "15:04"
 rondo config set datetime_format "02.01.2006 15:04"
 ```
+
+Presets:
+- `date_format`: `iso`, `european` (`eu`), `us`
+- `time_format`: `24h`, `12h`
+- `datetime_format`: `iso`, `european` (`eu`), `us`
 
 Examples:
 - `02.01.2006` → `31.12.2026`

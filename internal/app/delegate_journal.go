@@ -37,7 +37,7 @@ func (d noteDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	isSelected := index == m.Index()
 	availWidth := m.Width()
 
-	dateLabel := d.cfg.FormatNoteTitle(n.Date, time.Now())
+	dateLabel := ui.FormatNoteTitle(n.Date, time.Now(), d.cfg)
 	countLabel := fmt.Sprintf("%d entries", len(n.Entries))
 
 	if n.Hidden {

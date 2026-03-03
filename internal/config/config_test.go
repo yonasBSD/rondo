@@ -294,3 +294,64 @@ func TestFormatFunctions(t *testing.T) {
 		t.Errorf("FormatDateTime = %q, want 02.03.2026 21:07", got)
 	}
 }
+
+func TestValidateTimeLayout(t *testing.T) {
+	tests := []struct {
+		name    string
+		layout  string
+		wantErr bool
+	}{
+		{name: "date layout", layout: "2006-01-02", wantErr: false},
+		{name: "time layout", layout: "3:04 PM", wantErr: false},
+		{name: "literal string invalid", layout: "DD/MM/YYYY", wantErr: true},
+		{name: "empty invalid", layout: "", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateTimeLayout(tt.layout)
+			if tt.wantErr && err == nil {
+				t.Fatalf("ValidateTimeLayout(%q) expected error, got nil", tt.layout)
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("ValidateTimeLayout(%q) unexpected error: %v", tt.layout, err)
+			}
+		})
+	}
+}
+
+func TestValidate_InvalidLayoutsFallbackToDefaults(t *testing.T) {
+	cfg := Config{
+		PanelRatio:     0.5,
+		DateFormat:     "DD/MM/YYYY",
+		TimeFormat:     "hh:mm",
+		DateTimeFormat: "YYYY-MM-DD hh:mm",
+	}
+
+	cfg.validate()
+
+	if cfg.DateFormat != "2006-01-02" {
+		t.Errorf("DateFormat = %q, want 2006-01-02", cfg.DateFormat)
+	}
+	if cfg.TimeFormat != "15:04" {
+		t.Errorf("TimeFormat = %q, want 15:04", cfg.TimeFormat)
+	}
+	if cfg.DateTimeFormat != "2006-01-02 15:04" {
+		t.Errorf("DateTimeFormat = %q, want 2006-01-02 15:04", cfg.DateTimeFormat)
+	}
+}
+
+func TestValidate_LegacyConfigGetsFormatDefaults(t *testing.T) {
+	legacyJSON := []byte(`{"panel_ratio":0.55}`)
+
+	var cfg Config
+	if err := json.Unmarshal(legacyJSON, &cfg); err != nil {
+		t.Fatalf("unmarshal legacy json: %v", err)
+	}
+
+	cfg.validate()
+
+	if cfg.DateFormat == "" || cfg.TimeFormat == "" || cfg.DateTimeFormat == "" {
+		t.Fatalf("legacy config did not get defaults: %+v", cfg)
+	}
+}

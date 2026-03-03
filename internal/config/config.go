@@ -11,11 +11,15 @@ import (
 )
 
 const (
-	defaultPanelRatio = 0.4
-	minPanelRatio     = 0.2
-	maxPanelRatio     = 0.8
-	defaultDateFormat = "2006-01-02"
-	defaultTimeFormat = "15:04"
+	defaultPanelRatio    = 0.4
+	minPanelRatio        = 0.2
+	maxPanelRatio        = 0.8
+	defaultDateFormat    = "2006-01-02"
+	defaultTimeFormat    = "15:04"
+	layoutSentinelOneY   = 2006
+	layoutSentinelTwoY   = 2007
+	layoutSentinelOneMon = time.January
+	layoutSentinelTwoMon = time.November
 )
 
 // FocusConfig holds pomodoro/focus timer settings.
@@ -73,14 +77,23 @@ func (c *Config) validate() {
 	if c.DateFormat == "" {
 		c.DateFormat = defaultDateFormat
 	}
+	if err := ValidateTimeLayout(c.DateFormat); err != nil {
+		c.DateFormat = defaultDateFormat
+	}
 
 	c.TimeFormat = strings.TrimSpace(c.TimeFormat)
 	if c.TimeFormat == "" {
 		c.TimeFormat = defaultTimeFormat
 	}
+	if err := ValidateTimeLayout(c.TimeFormat); err != nil {
+		c.TimeFormat = defaultTimeFormat
+	}
 
 	c.DateTimeFormat = strings.TrimSpace(c.DateTimeFormat)
 	if c.DateTimeFormat == "" {
+		c.DateTimeFormat = c.DateFormat + " " + c.TimeFormat
+	}
+	if err := ValidateTimeLayout(c.DateTimeFormat); err != nil {
 		c.DateTimeFormat = c.DateFormat + " " + c.TimeFormat
 	}
 
@@ -121,57 +134,37 @@ func (c *Config) validate() {
 	}
 }
 
-func (c Config) normalizedDateFormat() string {
-	dateFormat := strings.TrimSpace(c.DateFormat)
-	if dateFormat == "" {
-		return defaultDateFormat
+// ValidateTimeLayout validates that a Go time layout contains at least one
+// actual time token and is not only static text (e.g. "DD/MM/YYYY").
+func ValidateTimeLayout(layout string) error {
+	layout = strings.TrimSpace(layout)
+	if layout == "" {
+		return fmt.Errorf("layout cannot be empty")
 	}
-	return dateFormat
-}
 
-func (c Config) normalizedTimeFormat() string {
-	timeFormat := strings.TrimSpace(c.TimeFormat)
-	if timeFormat == "" {
-		return defaultTimeFormat
+	s1 := time.Date(layoutSentinelOneY, layoutSentinelOneMon, 2, 15, 4, 5, 0, time.UTC).Format(layout)
+	s2 := time.Date(layoutSentinelTwoY, layoutSentinelTwoMon, 12, 23, 59, 58, 0, time.UTC).Format(layout)
+	if s1 == layout && s2 == layout {
+		return fmt.Errorf("not a valid Go time layout")
 	}
-	return timeFormat
-}
-
-func (c Config) normalizedDateTimeFormat() string {
-	dateTimeFormat := strings.TrimSpace(c.DateTimeFormat)
-	if dateTimeFormat == "" {
-		return c.normalizedDateFormat() + " " + c.normalizedTimeFormat()
-	}
-	return dateTimeFormat
+	return nil
 }
 
 func (c Config) FormatDate(t time.Time) string {
-	return t.Format(c.normalizedDateFormat())
+	return t.Format(c.DateFormat)
 }
 
 func (c Config) FormatTime(t time.Time) string {
-	return t.Format(c.normalizedTimeFormat())
+	return t.Format(c.TimeFormat)
 }
 
 func (c Config) FormatDateTime(t time.Time) string {
-	return t.Format(c.normalizedDateTimeFormat())
+	return t.Format(c.DateTimeFormat)
 }
 
-func (c Config) FormatNoteTitle(date, now time.Time) string {
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
-	yesterday := today.AddDate(0, 0, -1)
-	weekAgo := today.AddDate(0, 0, -6)
-
-	switch {
-	case date.Equal(today):
-		return "Today, " + c.FormatDate(date)
-	case date.Equal(yesterday):
-		return "Yesterday, " + c.FormatDate(date)
-	case date.After(weekAgo):
-		return fmt.Sprintf("%s, %s", date.Format("Mon"), c.FormatDate(date))
-	default:
-		return c.FormatDate(date)
-	}
+func (c Config) UsesDefaultDateTimeFormats() bool {
+	d := DefaultConfig()
+	return c.DateFormat == d.DateFormat && c.TimeFormat == d.TimeFormat && c.DateTimeFormat == d.DateTimeFormat
 }
 
 // Path returns the absolute path to the config file (~/.todo-app/config.json).

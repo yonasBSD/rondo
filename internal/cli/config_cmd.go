@@ -17,6 +17,33 @@ type configKey struct {
 	set         func(c *config.Config, val string) error
 }
 
+var dateFormatPresets = map[string]string{
+	"iso":      "2006-01-02",
+	"european": "02.01.2006",
+	"eu":       "02.01.2006",
+	"us":       "01/02/2006",
+}
+
+var timeFormatPresets = map[string]string{
+	"24h": "15:04",
+	"12h": "3:04 PM",
+}
+
+var dateTimeFormatPresets = map[string]string{
+	"iso":      "2006-01-02 15:04",
+	"european": "02.01.2006 15:04",
+	"eu":       "02.01.2006 15:04",
+	"us":       "01/02/2006 3:04 PM",
+}
+
+func resolveFormatValue(val string, presets map[string]string) string {
+	val = strings.TrimSpace(val)
+	if preset, ok := presets[strings.ToLower(val)]; ok {
+		return preset
+	}
+	return val
+}
+
 var configKeys = map[string]configKey{
 	"panel_ratio": {
 		description: "Panel width ratio (0.2–0.8)",
@@ -36,42 +63,36 @@ var configKeys = map[string]configKey{
 		},
 	},
 	"date_format": {
-		description: "Date format (Go layout, e.g. 02.01.2006)",
+		description: "Date format (Go layout or preset: iso, european, us)",
 		get:         func(c config.Config) string { return c.DateFormat },
 		set: func(c *config.Config, val string) error {
-			val = strings.TrimSpace(val)
-			if val == "" {
-				return fmt.Errorf("date_format cannot be empty")
+			val = resolveFormatValue(val, dateFormatPresets)
+			if err := config.ValidateTimeLayout(val); err != nil {
+				return fmt.Errorf("date_format: %w", err)
 			}
 			c.DateFormat = val
-			if strings.TrimSpace(c.DateTimeFormat) == "" {
-				c.DateTimeFormat = c.DateFormat + " " + c.TimeFormat
-			}
 			return nil
 		},
 	},
 	"time_format": {
-		description: "Time format (Go layout, e.g. 15:04 or 03:04 PM)",
+		description: "Time format (Go layout or preset: 24h, 12h)",
 		get:         func(c config.Config) string { return c.TimeFormat },
 		set: func(c *config.Config, val string) error {
-			val = strings.TrimSpace(val)
-			if val == "" {
-				return fmt.Errorf("time_format cannot be empty")
+			val = resolveFormatValue(val, timeFormatPresets)
+			if err := config.ValidateTimeLayout(val); err != nil {
+				return fmt.Errorf("time_format: %w", err)
 			}
 			c.TimeFormat = val
-			if strings.TrimSpace(c.DateTimeFormat) == "" {
-				c.DateTimeFormat = c.DateFormat + " " + c.TimeFormat
-			}
 			return nil
 		},
 	},
 	"datetime_format": {
-		description: "Date+time format (Go layout, e.g. 02.01.2006 15:04)",
+		description: "Date+time format (Go layout or preset: iso, european, us)",
 		get:         func(c config.Config) string { return c.DateTimeFormat },
 		set: func(c *config.Config, val string) error {
-			val = strings.TrimSpace(val)
-			if val == "" {
-				return fmt.Errorf("datetime_format cannot be empty")
+			val = resolveFormatValue(val, dateTimeFormatPresets)
+			if err := config.ValidateTimeLayout(val); err != nil {
+				return fmt.Errorf("datetime_format: %w", err)
 			}
 			c.DateTimeFormat = val
 			return nil
