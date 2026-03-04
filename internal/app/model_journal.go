@@ -294,12 +294,12 @@ func (m *Model) selectedNote() *journal.Note {
 	if item == nil {
 		return nil
 	}
-	n, ok := item.(journal.Note)
+	ni, ok := item.(noteItem)
 	if !ok {
 		return nil
 	}
 	for i := range m.notes {
-		if m.notes[i].ID == n.ID {
+		if m.notes[i].ID == ni.Note.ID {
 			return &m.notes[i]
 		}
 	}
@@ -321,7 +321,7 @@ func (m *Model) reloadJournal() error {
 
 	if selectedID != 0 {
 		for i, item := range m.journalList.Items() {
-			if n, ok := item.(journal.Note); ok && n.ID == selectedID {
+			if ni, ok := item.(noteItem); ok && ni.Note.ID == selectedID {
 				m.journalList.Select(i)
 				break
 			}
@@ -349,9 +349,13 @@ func (m *Model) refreshJournalList() {
 			}
 		}
 	}
+	now := time.Now()
 	items := make([]list.Item, len(filtered))
 	for i, n := range filtered {
-		items[i] = n
+		items[i] = noteItem{
+			Note:  n,
+			title: m.cfg.FormatNoteTitle(n.Date, now),
+		}
 	}
 	m.journalList.SetItems(items)
 }
@@ -395,7 +399,7 @@ func (m Model) viewJournal(header string) string {
 	// Dynamic detail panel title.
 	detailTitle := "2: Journal"
 	if note := m.selectedNote(); note != nil {
-		detailTitle = "2: " + ui.FormatNoteTitle(note.Date, time.Now(), m.cfg)
+		detailTitle = "2: " + m.cfg.FormatNoteTitle(note.Date, time.Now())
 	}
 
 	listPanel := renderPanel(listContent, listTitle, listWidth, contentHeight, m.focusedPanel == 0)
@@ -509,7 +513,7 @@ func (m Model) renderJournalOverlays(view string) string {
 		note := m.selectedNote()
 		if note != nil {
 			action := "Hide"
-			noteTitle := ui.FormatNoteTitle(note.Date, time.Now(), m.cfg)
+			noteTitle := m.cfg.FormatNoteTitle(note.Date, time.Now())
 			message := fmt.Sprintf("Hide \"%s\" (%d entries)?\nThe note can be restored later.", noteTitle, len(note.Entries))
 			borderColor := ui.Yellow
 			if note.Hidden {

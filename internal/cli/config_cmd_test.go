@@ -6,7 +6,7 @@ import (
 	"github.com/roniel/todo-app/internal/config"
 )
 
-func TestResolveFormatValue_DatePresets(t *testing.T) {
+func TestResolvePreset_DatePresets(t *testing.T) {
 	tests := []struct {
 		in   string
 		want string
@@ -19,13 +19,13 @@ func TestResolveFormatValue_DatePresets(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		if got := resolveFormatValue(tt.in, dateFormatPresets); got != tt.want {
-			t.Fatalf("resolveFormatValue(%q) = %q, want %q", tt.in, got, tt.want)
+		if got := config.ResolvePreset(tt.in, config.DateFormatPresets); got != tt.want {
+			t.Fatalf("ResolvePreset(%q) = %q, want %q", tt.in, got, tt.want)
 		}
 	}
 }
 
-func TestResolveFormatValue_TimePresets(t *testing.T) {
+func TestResolvePreset_TimePresets(t *testing.T) {
 	tests := []struct {
 		in   string
 		want string
@@ -36,8 +36,8 @@ func TestResolveFormatValue_TimePresets(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		if got := resolveFormatValue(tt.in, timeFormatPresets); got != tt.want {
-			t.Fatalf("resolveFormatValue(%q) = %q, want %q", tt.in, got, tt.want)
+		if got := config.ResolvePreset(tt.in, config.TimeFormatPresets); got != tt.want {
+			t.Fatalf("ResolvePreset(%q) = %q, want %q", tt.in, got, tt.want)
 		}
 	}
 }

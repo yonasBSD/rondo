@@ -17,33 +17,6 @@ type configKey struct {
 	set         func(c *config.Config, val string) error
 }
 
-var dateFormatPresets = map[string]string{
-	"iso":      "2006-01-02",
-	"european": "02.01.2006",
-	"eu":       "02.01.2006",
-	"us":       "01/02/2006",
-}
-
-var timeFormatPresets = map[string]string{
-	"24h": "15:04",
-	"12h": "3:04 PM",
-}
-
-var dateTimeFormatPresets = map[string]string{
-	"iso":      "2006-01-02 15:04",
-	"european": "02.01.2006 15:04",
-	"eu":       "02.01.2006 15:04",
-	"us":       "01/02/2006 3:04 PM",
-}
-
-func resolveFormatValue(val string, presets map[string]string) string {
-	val = strings.TrimSpace(val)
-	if preset, ok := presets[strings.ToLower(val)]; ok {
-		return preset
-	}
-	return val
-}
-
 var configKeys = map[string]configKey{
 	"panel_ratio": {
 		description: "Panel width ratio (0.2–0.8)",
@@ -66,7 +39,7 @@ var configKeys = map[string]configKey{
 		description: "Date format (Go layout or preset: iso, european, us)",
 		get:         func(c config.Config) string { return c.DateFormat },
 		set: func(c *config.Config, val string) error {
-			val = resolveFormatValue(val, dateFormatPresets)
+			val = config.ResolvePreset(val, config.DateFormatPresets)
 			if err := config.ValidateTimeLayout(val); err != nil {
 				return fmt.Errorf("date_format: %w", err)
 			}
@@ -78,7 +51,7 @@ var configKeys = map[string]configKey{
 		description: "Time format (Go layout or preset: 24h, 12h)",
 		get:         func(c config.Config) string { return c.TimeFormat },
 		set: func(c *config.Config, val string) error {
-			val = resolveFormatValue(val, timeFormatPresets)
+			val = config.ResolvePreset(val, config.TimeFormatPresets)
 			if err := config.ValidateTimeLayout(val); err != nil {
 				return fmt.Errorf("time_format: %w", err)
 			}
@@ -90,7 +63,7 @@ var configKeys = map[string]configKey{
 		description: "Date+time format (Go layout or preset: iso, european, us)",
 		get:         func(c config.Config) string { return c.DateTimeFormat },
 		set: func(c *config.Config, val string) error {
-			val = resolveFormatValue(val, dateTimeFormatPresets)
+			val = config.ResolvePreset(val, config.DateTimeFormatPresets)
 			if err := config.ValidateTimeLayout(val); err != nil {
 				return fmt.Errorf("datetime_format: %w", err)
 			}
@@ -325,7 +298,12 @@ func (c *CLI) configSetCmd() *cobra.Command {
 			}
 
 			p := c.printer(os.Stdout)
-			p.Success("Set %s = %s", key, val)
+			stored := kd.get(cfg)
+			if stored != val {
+				p.Success("Set %s = %s (resolved: %s)", key, val, stored)
+			} else {
+				p.Success("Set %s = %s", key, val)
+			}
 			return nil
 		},
 	}

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
@@ -14,6 +13,15 @@ import (
 	"github.com/roniel/todo-app/internal/journal"
 	"github.com/roniel/todo-app/internal/ui"
 )
+
+// noteItem wraps a journal.Note with a pre-computed title used for both
+// display rendering and list filtering.
+type noteItem struct {
+	journal.Note
+	title string
+}
+
+func (n noteItem) FilterValue() string { return n.title }
 
 type noteDelegate struct {
 	cfg config.Config
@@ -29,15 +37,16 @@ func (d noteDelegate) Spacing() int { return 0 }
 func (d noteDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 
 func (d noteDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
-	n, ok := item.(journal.Note)
+	ni, ok := item.(noteItem)
 	if !ok {
 		return
 	}
+	n := ni.Note
 
 	isSelected := index == m.Index()
 	availWidth := m.Width()
 
-	dateLabel := ui.FormatNoteTitle(n.Date, time.Now(), d.cfg)
+	dateLabel := ni.title
 	countLabel := fmt.Sprintf("%d entries", len(n.Entries))
 
 	if n.Hidden {

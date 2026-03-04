@@ -13,42 +13,6 @@ import (
 	"github.com/roniel/todo-app/internal/task"
 )
 
-func FormatNoteTitle(date, now time.Time, cfg config.Config) string {
-	if cfg.UsesDefaultDateTimeFormats() {
-		today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
-		yesterday := today.AddDate(0, 0, -1)
-		weekAgo := today.AddDate(0, 0, -6)
-
-		switch {
-		case date.Equal(today):
-			return "Today, " + date.Format("Jan 02")
-		case date.Equal(yesterday):
-			return "Yesterday, " + date.Format("Jan 02")
-		case date.After(weekAgo):
-			return date.Format("Mon, Jan 02")
-		case date.Year() == now.Year():
-			return date.Format("Jan 02")
-		default:
-			return date.Format("Jan 02, 2006")
-		}
-	}
-
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
-	yesterday := today.AddDate(0, 0, -1)
-	weekAgo := today.AddDate(0, 0, -6)
-
-	switch {
-	case date.Equal(today):
-		return "Today, " + cfg.FormatDate(date)
-	case date.Equal(yesterday):
-		return "Yesterday, " + cfg.FormatDate(date)
-	case date.After(weekAgo):
-		return fmt.Sprintf("%s, %s", date.Format("Mon"), cfg.FormatDate(date))
-	default:
-		return cfg.FormatDate(date)
-	}
-}
-
 func labelStyle() lipgloss.Style { return lipgloss.NewStyle().Foreground(Gray).Width(12) }
 func valueStyle() lipgloss.Style { return lipgloss.NewStyle().Foreground(White) }
 func titleStyle() lipgloss.Style { return lipgloss.NewStyle().Bold(true).Foreground(White) }
@@ -142,9 +106,6 @@ func RenderDetail(t *task.Task, width int, subtaskIdx int, detailFocused bool, c
 	if t.DueDate != nil {
 		level := DueStatus(*t.DueDate)
 		dateStr := cfg.FormatDate(*t.DueDate)
-		if cfg.UsesDefaultDateTimeFormats() {
-			dateStr = t.DueDate.Format("Jan 02, 2006")
-		}
 		badge := DueBadge(level)
 		if badge != "" {
 			dateStr += " " + DueStyle(level).Render(badge)
@@ -163,9 +124,6 @@ func RenderDetail(t *task.Task, width int, subtaskIdx int, detailFocused bool, c
 
 	// Created
 	created := cfg.FormatDate(t.CreatedAt)
-	if cfg.UsesDefaultDateTimeFormats() {
-		created = t.CreatedAt.Format("Jan 02, 2006")
-	}
 	sections = append(sections, labelStyle().Render("Created")+valueStyle().Render(created))
 
 	// Tags
@@ -231,7 +189,7 @@ func RenderJournalDetail(note *journal.Note, width int, entryIdx int, detailFocu
 	var sections []string
 
 	// Date title.
-	dateTitle := titleStyle().Render(FormatNoteTitle(note.Date, time.Now(), cfg))
+	dateTitle := titleStyle().Render(cfg.FormatDetailDate(note.Date))
 	if note.Hidden {
 		badge := lipgloss.NewStyle().Foreground(Yellow).Render(" [hidden]")
 		dateTitle += badge
@@ -251,9 +209,6 @@ func RenderJournalDetail(note *journal.Note, width int, entryIdx int, detailFocu
 				prefix = lipgloss.NewStyle().Foreground(Cyan).Render("▸ ")
 			}
 			ts := cfg.FormatTime(entry.CreatedAt)
-			if cfg.UsesDefaultDateTimeFormats() {
-				ts = entry.CreatedAt.Format("3:04 PM")
-			}
 			timestamp := prefix + lipgloss.NewStyle().Bold(true).Foreground(Cyan).Render(ts)
 			sections = append(sections, timestamp)
 			sections = append(sections, "  "+RenderMarkdown(entry.Body, width-4))

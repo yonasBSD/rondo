@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/roniel/todo-app/internal/journal"
-	"github.com/roniel/todo-app/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -340,13 +339,14 @@ func printNotesJSON(w io.Writer, notes []journal.Note) error {
 }
 
 func (c *CLI) printNotesTable(p *Printer, notes []journal.Note) error {
+	now := time.Now()
 	rows := make([][]string, 0, len(notes))
 	for _, n := range notes {
 		hidden := "no"
 		if n.Hidden {
 			hidden = "yes"
 		}
-		rows = append(rows, []string{ui.FormatNoteTitle(n.Date, time.Now(), c.cfg), fmt.Sprintf("%d", len(n.Entries)), hidden})
+		rows = append(rows, []string{c.cfg.FormatNoteTitle(n.Date, now), fmt.Sprintf("%d", len(n.Entries)), hidden})
 	}
 	p.Table([]string{"DATE", "ENTRIES", "HIDDEN"}, rows)
 	return nil

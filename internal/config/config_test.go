@@ -13,14 +13,14 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.PanelRatio != 0.4 {
 		t.Errorf("DefaultConfig().PanelRatio = %v, want 0.4", cfg.PanelRatio)
 	}
-	if cfg.DateFormat != "2006-01-02" {
-		t.Errorf("DefaultConfig().DateFormat = %q, want 2006-01-02", cfg.DateFormat)
+	if cfg.DateFormat != "Jan 02, 2006" {
+		t.Errorf("DefaultConfig().DateFormat = %q, want Jan 02, 2006", cfg.DateFormat)
 	}
-	if cfg.TimeFormat != "15:04" {
-		t.Errorf("DefaultConfig().TimeFormat = %q, want 15:04", cfg.TimeFormat)
+	if cfg.TimeFormat != "3:04 PM" {
+		t.Errorf("DefaultConfig().TimeFormat = %q, want 3:04 PM", cfg.TimeFormat)
 	}
-	if cfg.DateTimeFormat != "2006-01-02 15:04" {
-		t.Errorf("DefaultConfig().DateTimeFormat = %q, want 2006-01-02 15:04", cfg.DateTimeFormat)
+	if cfg.DateTimeFormat != "Jan 02, 2006 3:04 PM" {
+		t.Errorf("DefaultConfig().DateTimeFormat = %q, want Jan 02, 2006 3:04 PM", cfg.DateTimeFormat)
 	}
 }
 
@@ -65,7 +65,7 @@ func TestSaveAndLoad(t *testing.T) {
 	if err := json.Unmarshal(raw, &loaded); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	loaded.validate()
+	loaded.validateWithWarnings()
 
 	if loaded.PanelRatio != 0.6 {
 		t.Errorf("loaded PanelRatio = %v, want 0.6", loaded.PanelRatio)
@@ -88,7 +88,7 @@ func TestValidate_Clamp(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := Config{PanelRatio: tt.input}
-			cfg.validate()
+			cfg.validateWithWarnings()
 			if cfg.PanelRatio != tt.want {
 				t.Errorf("validate(%v) = %v, want %v", tt.input, cfg.PanelRatio, tt.want)
 			}
@@ -133,7 +133,7 @@ func TestSave_CreatesDirectory(t *testing.T) {
 	if err := json.Unmarshal(raw, &loaded); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	loaded.validate()
+	loaded.validateWithWarnings()
 
 	if loaded.PanelRatio != 0.35 {
 		t.Errorf("loaded PanelRatio = %v, want 0.35", loaded.PanelRatio)
@@ -166,7 +166,7 @@ func TestFocusConfig_Defaults(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := Config{Focus: tt.input}
-			cfg.validate()
+			cfg.validateWithWarnings()
 			if cfg.Focus.WorkDuration != tt.want.WorkDuration {
 				t.Errorf("WorkDuration = %d, want %d", cfg.Focus.WorkDuration, tt.want.WorkDuration)
 			}
@@ -221,7 +221,7 @@ func TestFocusConfig_Clamp(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := Config{Focus: tt.input}
-			cfg.validate()
+			cfg.validateWithWarnings()
 			if cfg.Focus.WorkDuration != tt.want.WorkDuration {
 				t.Errorf("WorkDuration = %d, want %d", cfg.Focus.WorkDuration, tt.want.WorkDuration)
 			}
@@ -272,7 +272,7 @@ func TestRoundtrip_JSON(t *testing.T) {
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	decoded.validate()
+	decoded.validateWithWarnings()
 
 	if decoded.PanelRatio != original.PanelRatio {
 		t.Errorf("roundtrip PanelRatio = %v, want %v", decoded.PanelRatio, original.PanelRatio)
@@ -281,7 +281,7 @@ func TestRoundtrip_JSON(t *testing.T) {
 
 func TestFormatFunctions(t *testing.T) {
 	cfg := Config{DateFormat: "02.01.2006", TimeFormat: "15:04", DateTimeFormat: "02.01.2006 15:04"}
-	cfg.validate()
+	cfg.validateWithWarnings()
 
 	ts := time.Date(2026, 3, 2, 21, 7, 0, 0, time.Local)
 	if got := cfg.FormatDate(ts); got != "02.03.2026" {
@@ -328,16 +328,81 @@ func TestValidate_InvalidLayoutsFallbackToDefaults(t *testing.T) {
 		DateTimeFormat: "YYYY-MM-DD hh:mm",
 	}
 
-	cfg.validate()
+	cfg.validateWithWarnings()
 
-	if cfg.DateFormat != "2006-01-02" {
-		t.Errorf("DateFormat = %q, want 2006-01-02", cfg.DateFormat)
+	if cfg.DateFormat != "Jan 02, 2006" {
+		t.Errorf("DateFormat = %q, want Jan 02, 2006", cfg.DateFormat)
 	}
-	if cfg.TimeFormat != "15:04" {
-		t.Errorf("TimeFormat = %q, want 15:04", cfg.TimeFormat)
+	if cfg.TimeFormat != "3:04 PM" {
+		t.Errorf("TimeFormat = %q, want 3:04 PM", cfg.TimeFormat)
 	}
-	if cfg.DateTimeFormat != "2006-01-02 15:04" {
-		t.Errorf("DateTimeFormat = %q, want 2006-01-02 15:04", cfg.DateTimeFormat)
+	if cfg.DateTimeFormat != "Jan 02, 2006 3:04 PM" {
+		t.Errorf("DateTimeFormat = %q, want Jan 02, 2006 3:04 PM", cfg.DateTimeFormat)
+	}
+}
+
+func TestDualPathBug_PartialFormatChange(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.TimeFormat = "15:04"
+	cfg.validateWithWarnings()
+
+	ts := time.Date(2026, 3, 2, 0, 0, 0, 0, time.Local)
+
+	// Changing TimeFormat must not affect FormatDate output.
+	got := cfg.FormatDate(ts)
+	want := "Mar 02, 2026"
+	if got != want {
+		t.Errorf("FormatDate after TimeFormat change = %q, want %q", got, want)
+	}
+}
+
+func TestStripYear(t *testing.T) {
+	tests := []struct {
+		name   string
+		layout string
+		want   string
+	}{
+		{name: "pretty year-last", layout: "Jan 02, 2006", want: "Jan 02"},
+		{name: "ISO year-first", layout: "2006-01-02", want: "01-02"},
+		{name: "EU year-last", layout: "02.01.2006", want: "02.01"},
+		{name: "US year-last", layout: "01/02/2006", want: "01/02"},
+		{name: "no year", layout: "Jan 02", want: "Jan 02"},
+		{name: "year only", layout: "2006", want: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := stripYear(tt.layout); got != tt.want {
+				t.Errorf("stripYear(%q) = %q, want %q", tt.layout, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFormatDateShort(t *testing.T) {
+	now := time.Date(2026, 3, 15, 0, 0, 0, 0, time.Local)
+	sameYear := time.Date(2026, 7, 4, 0, 0, 0, 0, time.Local)
+	diffYear := time.Date(2025, 12, 25, 0, 0, 0, 0, time.Local)
+
+	tests := []struct {
+		name       string
+		dateFormat string
+		date       time.Time
+		want       string
+	}{
+		{name: "pretty same year", dateFormat: "Jan 02, 2006", date: sameYear, want: "Jul 04"},
+		{name: "pretty diff year", dateFormat: "Jan 02, 2006", date: diffYear, want: "Dec 25, 2025"},
+		{name: "ISO same year", dateFormat: "2006-01-02", date: sameYear, want: "07-04"},
+		{name: "ISO diff year", dateFormat: "2006-01-02", date: diffYear, want: "2025-12-25"},
+		{name: "EU same year", dateFormat: "02.01.2006", date: sameYear, want: "04.07"},
+		{name: "US same year", dateFormat: "01/02/2006", date: sameYear, want: "07/04"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := Config{DateFormat: tt.dateFormat}
+			if got := cfg.FormatDateShort(tt.date, now); got != tt.want {
+				t.Errorf("FormatDateShort(%q) = %q, want %q", tt.dateFormat, got, tt.want)
+			}
+		})
 	}
 }
 
@@ -349,9 +414,143 @@ func TestValidate_LegacyConfigGetsFormatDefaults(t *testing.T) {
 		t.Fatalf("unmarshal legacy json: %v", err)
 	}
 
-	cfg.validate()
+	cfg.validateWithWarnings()
 
 	if cfg.DateFormat == "" || cfg.TimeFormat == "" || cfg.DateTimeFormat == "" {
 		t.Fatalf("legacy config did not get defaults: %+v", cfg)
+	}
+}
+
+func TestFormatNoteTitle(t *testing.T) {
+	now := time.Date(2026, 3, 15, 14, 0, 0, 0, time.Local)
+	cfg := DefaultConfig()
+
+	tests := []struct {
+		name string
+		date time.Time
+		want string
+	}{
+		{
+			name: "today",
+			date: time.Date(2026, 3, 15, 0, 0, 0, 0, time.Local),
+			want: "Today, Mar 15",
+		},
+		{
+			name: "yesterday",
+			date: time.Date(2026, 3, 14, 0, 0, 0, 0, time.Local),
+			want: "Yesterday, Mar 14",
+		},
+		{
+			name: "within_week",
+			date: time.Date(2026, 3, 10, 0, 0, 0, 0, time.Local),
+			want: "Tue, Mar 10",
+		},
+		{
+			name: "same_year",
+			date: time.Date(2026, 1, 5, 0, 0, 0, 0, time.Local),
+			want: "Jan 05",
+		},
+		{
+			name: "diff_year",
+			date: time.Date(2025, 12, 25, 0, 0, 0, 0, time.Local),
+			want: "Dec 25, 2025",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := cfg.FormatNoteTitle(tt.date, now)
+			if got != tt.want {
+				t.Errorf("FormatNoteTitle(%v) = %q, want %q", tt.date, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFormatNoteTitle_CustomFormat(t *testing.T) {
+	now := time.Date(2026, 3, 15, 14, 0, 0, 0, time.Local)
+	cfg := Config{DateFormat: "02.01.2006"}
+
+	today := time.Date(2026, 3, 15, 0, 0, 0, 0, time.Local)
+	got := cfg.FormatNoteTitle(today, now)
+	if got != "Today, 15.03" {
+		t.Errorf("FormatNoteTitle with EU format = %q, want Today, 15.03", got)
+	}
+
+	oldDate := time.Date(2025, 6, 1, 0, 0, 0, 0, time.Local)
+	got = cfg.FormatNoteTitle(oldDate, now)
+	if got != "01.06.2025" {
+		t.Errorf("FormatNoteTitle old date with EU format = %q, want 01.06.2025", got)
+	}
+}
+
+func TestFormatNoteTitle_TimezoneRobust(t *testing.T) {
+	now := time.Now()
+	// Journal dates are stored as local midnight, so use Local here.
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+	cfg := DefaultConfig()
+
+	got := cfg.FormatNoteTitle(today, now)
+	if got[:5] != "Today" {
+		t.Errorf("local midnight matching Today: got %q, want prefix 'Today'", got)
+	}
+}
+
+func TestFormatDetailDate(t *testing.T) {
+	cfg := DefaultConfig()
+	ts := time.Date(2026, 3, 15, 0, 0, 0, 0, time.Local) // Sunday
+	got := cfg.FormatDetailDate(ts)
+	if got != "Sun, Mar 15, 2026" {
+		t.Errorf("FormatDetailDate = %q, want Sun, Mar 15, 2026", got)
+	}
+}
+
+func TestValidateWithWarnings_InvalidFormats(t *testing.T) {
+	cfg := Config{
+		PanelRatio: 0.5,
+		DateFormat: "DD/MM/YYYY",
+		TimeFormat: "hh:mm",
+	}
+	warnings := cfg.validateWithWarnings()
+	if len(warnings) != 2 {
+		t.Fatalf("expected 2 warnings, got %d: %v", len(warnings), warnings)
+	}
+}
+
+func TestValidateWithWarnings_ValidFormats_NoWarnings(t *testing.T) {
+	cfg := DefaultConfig()
+	warnings := cfg.validateWithWarnings()
+	if len(warnings) != 0 {
+		t.Fatalf("expected 0 warnings, got %d: %v", len(warnings), warnings)
+	}
+}
+
+func TestValidateTimeLayout_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name    string
+		layout  string
+		wantErr bool
+	}{
+		{name: "whitespace only", layout: "   ", wantErr: true},
+		{name: "pure static text", layout: "Hello World", wantErr: true},
+		{name: "My Date label", layout: "My Date", wantErr: true},
+		{name: "year only", layout: "2006", wantErr: false},
+		{name: "month only", layout: "January", wantErr: false},
+		{name: "day only", layout: "02", wantErr: false},
+		{name: "hour only", layout: "15", wantErr: false},
+		{name: "standard date", layout: "2006-01-02", wantErr: false},
+		{name: "pretty date", layout: "Jan 02, 2006", wantErr: false},
+		{name: "12h time", layout: "3:04 PM", wantErr: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateTimeLayout(tt.layout)
+			if tt.wantErr && err == nil {
+				t.Fatalf("ValidateTimeLayout(%q) expected error, got nil", tt.layout)
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("ValidateTimeLayout(%q) unexpected error: %v", tt.layout, err)
+			}
+		})
 	}
 }

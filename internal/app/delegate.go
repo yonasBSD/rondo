@@ -99,9 +99,6 @@ func (d taskDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	if t.DueDate != nil {
 		level := ui.DueStatus(*t.DueDate)
 		dueDate := d.cfg.FormatDate(*t.DueDate)
-		if d.cfg.UsesDefaultDateTimeFormats() {
-			dueDate = t.DueDate.Format("Jan 02")
-		}
 		dueStr := fmt.Sprintf("due %s", dueDate)
 		badge := ui.DueBadge(level)
 		if badge != "" {
