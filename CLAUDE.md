@@ -80,8 +80,9 @@ modernc.org/sqlite v1.46.1
 Full Cobra-based CLI with all features available as subcommands:
 - **Global flags**: `--format table|json`, `--json`, `--quiet`, `--no-color`
 - **TTY-aware output**: Styled tables with Unicode borders + ANSI colors when TTY; plain tabwriter when piped
-- **Commands**: `add`, `done`, `list`, `show`, `edit`, `delete`, `status`, `subtask`, `timelog`, `note`, `recur`, `journal`, `focus`, `export`, `stats`, `config`, `batch`, `completion`
+- **Commands**: `add`, `done`, `list`, `show`, `edit`, `delete`, `status`, `subtask`, `timelog`, `note`, `recur`, `journal`, `focus`, `export`, `stats`, `config`, `batch`, `completion`, `skill`
 - **Shell completions**: bash, zsh, fish, powershell via `rondo completion`
+- **Claude Code skill**: `rondo skill install [--project]` / `rondo skill uninstall [--project]`
 
 ### UI Layout
 ```
@@ -138,6 +139,8 @@ internal/
     stats.go                    # stats (task + focus summary)
     config_cmd.go               # config (list, get, set, reset)
     completion.go               # Shell completion (bash, zsh, fish, powershell)
+    skill_cmd.go                # skill (install, uninstall) for Claude Code
+    skill_content.go            # Embedded SKILL.md content
   config/
     config.go                   # JSON config (~/.todo-app/config.json)
   database/

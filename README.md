@@ -44,6 +44,7 @@
 - [Data & Config](#data--config)
 - [Development](#development)
 - [Architecture](#architecture)
+- [Claude Code Integration](#claude-code-integration)
 - [License](#license)
 
 ## Install
@@ -376,6 +377,8 @@ internal/
     stats.go                    # stats (task + focus summary)
     config_cmd.go               # config (list, get, set, reset)
     completion.go               # Shell completion (bash, zsh, fish, powershell)
+    skill_cmd.go                # skill (install, uninstall) for Claude Code
+    skill_content.go            # Embedded SKILL.md content
   config/
     config.go                   # JSON config (~/.todo-app/config.json)
   database/
@@ -407,6 +410,18 @@ internal/
 Follows the **Bubbletea MVU** (Model-Update-View) pattern. All data persists in a single SQLite database at `~/.todo-app/todo.db` (WAL mode, single connection, `ON DELETE CASCADE`).
 
 </details>
+
+## Claude Code Integration
+
+RonDO includes a built-in skill for [Claude Code](https://docs.anthropic.com/en/docs/claude-code), letting Claude manage your tasks, journal entries, and time logs during coding sessions.
+
+```bash
+rondo skill install              # Install globally (~/.claude/skills/)
+rondo skill install --project    # Install for current project only
+rondo skill uninstall            # Remove the skill
+```
+
+Once installed, Claude Code automatically uses rondo when you mention tasks, todos, journal entries, or time tracking.
 
 ## Built With
 
