@@ -23,6 +23,10 @@
 ---
 
 <p align="center">
+  <img src="assets/demo.gif" width="720" alt="RonDO demo">
+</p>
+
+<p align="center">
   <img src="assets/tasks.png" width="720" alt="Task management view">
 </p>
 <p align="center"><em>Task management with subtasks, priorities, and time tracking</em></p>
